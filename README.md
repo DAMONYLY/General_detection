@@ -25,7 +25,7 @@ Subsequently, i will continue to update the code to make it more concise , and a
 ### This repo results
 | name | Train Dataset | Val Dataset | mAP | notes |
 | :----- | :----- | :------ | :-----| :-----|
-| YOLOV3-\*-* | 2007trainval + 2012trainval | 2007test | 0.858 | the last results of origin repo without multi-scale training |  
+| YOLOV3-\*-* | 2007trainval + 2012trainval | 2007test | 0.811 | the last results of origin repo without multi-scale training |  
 
 `Note` : 
 
@@ -34,7 +34,7 @@ Subsequently, i will continue to update the code to make it more concise , and a
 * In the test, the nms threshold is 0.5(except the last one) and the conf_score is 0.01.`others` nms threshold is 0.45(0.45 will increase the mAP)
 * Now only support the single gpu to train and test.
 
-
+<!-- 
 ---
 ## Environment
 
@@ -114,7 +114,7 @@ DATA_TEST=./data/test # your own images
 CUDA_VISIBLE_DEVICES=0 python3 test.py --weight_path $WEIGHT_PATH --gpu_id 0 --visiual $DATA_TEST --eval
 
 ```
-The images can be seen in the `data/`
+The images can be seen in the `data/` -->
 
 ---
 ## TODO
