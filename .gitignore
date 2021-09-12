@@ -1,0 +1,24 @@
+# dir
+weight
+data
+dataset
+model/runs
+log
+.idea
+# file
+results.txt
+
+
+# python
+*.py[cod]
+__pycache__/
+
+# output
+*.log
+*.pkl
+*.npy
+*.pth
+*.pt
+*.onnx
+*.engine
+events.out.tfevents*
