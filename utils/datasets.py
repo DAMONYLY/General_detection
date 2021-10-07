@@ -22,13 +22,14 @@ class VocDataset(Dataset):
         self.classes = cfg.DATA["CLASSES"]
         self.num_classes = len(self.classes)
         self.class_to_id = dict(zip(self.classes, range(self.num_classes)))
+        # get txt file, one raw means one pic
         self.__annotations = self.__load_annotations(anno_file_type)
 
     def __len__(self):
         return  len(self.__annotations)
 
     def __getitem__(self, item):
-
+        # get pic and box
         img_org, bboxes_org = self.__parse_annotation(self.__annotations[item])
         img_org = img_org.transpose(2, 0, 1)  # HWC->CHW
         
@@ -65,11 +66,13 @@ class VocDataset(Dataset):
         return annotations
 
     def __parse_annotation(self, annotation):
-        """
-        Data augument.
-        :param annotation: Image' path and bboxes' coordinates, categories.
-        ex. [image_path xmin,ymin,xmax,ymax,class_ind xmin,ymin,xmax,ymax,class_ind ...]
-        :return: Return the enhanced image and bboxes. bbox'shape is [xmin, ymin, xmax, ymax, class_ind]
+        """从txt文件中提取图片路径以及boxes.
+        Args:
+            annotation (str): txt文件中的某一行
+        Returns:
+            img: 图片
+            bboxes：lable的box，[x1,y1,x2,y2,cls_id]
+
         """
         anno = annotation.strip().split(' ')
 
@@ -77,7 +80,7 @@ class VocDataset(Dataset):
         img = cv2.imread(img_path)  # H*W*C and C=BGR
         assert img is not None, 'File Not Found ' + img_path
         bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
-
+        # augment
         img, bboxes = dataAug.RandomHorizontalFilp()(np.copy(img), np.copy(bboxes))
         img, bboxes = dataAug.RandomCrop()(np.copy(img), np.copy(bboxes))
         img, bboxes = dataAug.RandomAffine()(np.copy(img), np.copy(bboxes))

@@ -15,11 +15,11 @@ from eval.evaluator import *
 from utils.tools import *
 from tensorboardX import SummaryWriter
 import config.yolov3_config_voc as cfg
-from utils import cosine_lr_scheduler
+from utils import cosine_lr_scheduler, model_info
 
 
-# import os
-# os.environ["CUDA_VISIBLE_DEVICES"]='2'
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]='3'
 
 
 class Trainer(object):
@@ -36,12 +36,14 @@ class Trainer(object):
                                            batch_size=cfg.TRAIN["BATCH_SIZE"],
                                            num_workers=cfg.TRAIN["NUMBER_WORKERS"],
                                            shuffle=True)
-        self.yolov3 = Yolov3().to(self.device)
-        # self.yolov3.apply(tools.weights_init_normal)
+        self.model = Yolov3().to(self.device)
+        self.model_info = model_info.get_model_info(self.model, cfg.TEST['TEST_IMG_SIZE'])
+        print("Model Summary: {}".format(self.model_info))
+        # self.model.apply(tools.weights_init_normal)
 
-        self.optimizer = optim.SGD(self.yolov3.parameters(), lr=cfg.TRAIN["LR_INIT"],
+        self.optimizer = optim.SGD(self.model.parameters(), lr=cfg.TRAIN["LR_INIT"],
                                    momentum=cfg.TRAIN["MOMENTUM"], weight_decay=cfg.TRAIN["WEIGHT_DECAY"])
-        #self.optimizer = optim.Adam(self.yolov3.parameters(), lr = lr_init, weight_decay=0.9995)
+        #self.optimizer = optim.Adam(self.model.parameters(), lr = lr_init, weight_decay=0.9995)
 
         self.criterion = YoloV3Loss(anchors=cfg.MODEL["ANCHORS"], strides=cfg.MODEL["STRIDES"],
                                     iou_threshold_loss=cfg.TRAIN["IOU_THRESHOLD_LOSS"])
@@ -59,7 +61,7 @@ class Trainer(object):
         if resume:
             last_weight = os.path.join(os.path.split(weight_path)[0], "last.pt")
             chkpt = torch.load(last_weight, map_location=self.device)
-            self.yolov3.load_state_dict(chkpt['model'])
+            self.model.load_state_dict(chkpt['model'])
 
             self.start_epoch = chkpt['epoch'] + 1
             if chkpt['optimizer'] is not None:
@@ -67,7 +69,7 @@ class Trainer(object):
                 self.best_mAP = chkpt['best_mAP']
             del chkpt
         else:
-            self.yolov3.load_darknet_weights(weight_path)
+            self.model.load_darknet_weights(weight_path)
 
 
     def __save_model_weights(self, epoch, mAP):
@@ -77,7 +79,7 @@ class Trainer(object):
         last_weight = os.path.join(os.path.split(self.weight_path)[0], "last.pt")
         chkpt = {'epoch': epoch,
                  'best_mAP': self.best_mAP,
-                 'model': self.yolov3.state_dict(),
+                 'model': self.model.state_dict(),
                  'optimizer': self.optimizer.state_dict()}
         torch.save(chkpt, last_weight)
 
@@ -90,11 +92,11 @@ class Trainer(object):
 
 
     def train(self):
-        # print(self.yolov3)
+        # print(self.model)
         print("Train datasets number is : {}".format(len(self.train_dataset)))
         all_iter = (self.epochs - self.start_epoch) * len(self.train_dataloader)
         for epoch in range(self.start_epoch, self.epochs):
-            self.yolov3.train()
+            self.model.train()
 
             mloss = torch.zeros(4)
             iter_time = 0
@@ -111,7 +113,7 @@ class Trainer(object):
                 mbboxes = mbboxes.to(self.device)
                 lbboxes = lbboxes.to(self.device)
 
-                p, p_d = self.yolov3(imgs)
+                p, p_d = self.model(imgs)
 
                 loss, loss_giou, loss_conf, loss_cls = self.criterion(p, p_d, label_sbbox, label_mbbox,
                                                   label_lbbox, sbboxes, mbboxes, lbboxes)
@@ -145,7 +147,7 @@ class Trainer(object):
             if epoch >= 20:
                 print('*'*20+"Validate"+'*'*20)
                 with torch.no_grad():
-                    APs = Evaluator(self.yolov3).APs_voc()
+                    APs = Evaluator(self.model).APs_voc()
                     for i in APs:
                         print("{} --> mAP : {}".format(i, APs[i]))
                         mAP += APs[i]
