@@ -43,19 +43,19 @@ class YoloV3Loss(nn.Module):
         """
         strides = self.__strides
 
-        loss_s, loss_s_giou, loss_s_conf, loss_s_cls = self.__cal_loss_per_layer(p[0], p_d[0], label_sbbox,
+        loss_s, loss_s_reg, loss_s_conf, loss_s_cls = self.__cal_loss_per_layer(p[0], p_d[0], label_sbbox,
                                                                sbboxes, strides[0])
-        loss_m, loss_m_giou, loss_m_conf, loss_m_cls = self.__cal_loss_per_layer(p[1], p_d[1], label_mbbox,
+        loss_m, loss_m_reg, loss_m_conf, loss_m_cls = self.__cal_loss_per_layer(p[1], p_d[1], label_mbbox,
                                                                mbboxes, strides[1])
-        loss_l, loss_l_giou, loss_l_conf, loss_l_cls = self.__cal_loss_per_layer(p[2], p_d[2], label_lbbox,
+        loss_l, loss_l_reg, loss_l_conf, loss_l_cls = self.__cal_loss_per_layer(p[2], p_d[2], label_lbbox,
                                                                lbboxes, strides[2])
 
         loss = loss_l + loss_m + loss_s
-        loss_giou = loss_s_giou + loss_m_giou + loss_l_giou
+        loss_reg = loss_s_reg + loss_m_reg + loss_l_reg
         loss_conf = loss_s_conf + loss_m_conf + loss_l_conf
         loss_cls = loss_s_cls + loss_m_cls + loss_l_cls
 
-        return loss, loss_giou, loss_conf, loss_cls
+        return loss, loss_reg, loss_conf, loss_cls
 
 
     def __cal_loss_per_layer(self, p, p_d, label, bboxes, stride):
@@ -75,7 +75,7 @@ class YoloV3Loss(nn.Module):
 
         :param stride: The scale of the feature map relative to the original image
 
-        :return: The average loss(loss_giou, loss_conf, loss_cls) of all batches of this detection layer.
+        :return: The average loss(loss_reg, loss_conf, loss_cls) of all batches of this detection layer.
         """
         BCE = nn.BCEWithLogitsLoss(reduction="none")
         FOCAL = FocalLoss(gamma=2, alpha=1.0, reduction="none")
@@ -95,11 +95,11 @@ class YoloV3Loss(nn.Module):
 
 
         # loss giou
-        giou = tools.GIOU_xywh_torch(p_d_xywh, label_xywh).unsqueeze(-1)
-
+        # iou = tools.GIOU_xywh_torch(p_d_xywh, label_xywh).unsqueeze(-1)
+        loss_iou = tools.Diou_xywh_torch(p_d_xywh, label_xywh).unsqueeze(-1)
         # The scaled weight of bbox is used to balance the impact of small objects and large objects on loss.
         bbox_loss_scale = 2.0 - 1.0 * label_xywh[..., 2:3] * label_xywh[..., 3:4] / (img_size ** 2)
-        loss_giou = label_obj_mask * bbox_loss_scale * (1.0 - giou) * label_mix
+        loss_reg = label_obj_mask * bbox_loss_scale * (1.0 - loss_iou) * label_mix
 
 
         # loss confidence
@@ -115,12 +115,12 @@ class YoloV3Loss(nn.Module):
         loss_cls = label_obj_mask * BCE(input=p_cls, target=label_cls) * label_mix
 
 
-        loss_giou = (torch.sum(loss_giou)) / batch_size
+        loss_reg = (torch.sum(loss_reg)) / batch_size
         loss_conf = (torch.sum(loss_conf)) / batch_size
         loss_cls = (torch.sum(loss_cls)) / batch_size
-        loss = loss_giou + loss_conf + loss_cls
+        loss = loss_reg + loss_conf + loss_cls
 
-        return loss, loss_giou, loss_conf, loss_cls
+        return loss, loss_reg, loss_conf, loss_cls
 
 
 if __name__ == "__main__":

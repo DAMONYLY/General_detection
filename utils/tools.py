@@ -229,6 +229,70 @@ def GIOU_xywh_torch(boxes1, boxes2):
 
     GIOU = IOU - 1.0 * (enclose_area - union_area) / enclose_area
     return GIOU
+def Diou_xywh_torch(preds, bbox, eps=1e-7):
+    '''
+    preds:[[x,y,w,h],,,]
+    bbox:[[x,y,w,h],,,]
+    eps: eps to avoid divide 0
+    reduction: mean or sum
+    return: diou-loss
+    '''
+    # xywh->xyxy
+    preds = torch.cat([preds[..., :2] - preds[..., 2:] * 0.5,
+                        preds[..., :2] + preds[..., 2:] * 0.5], dim=-1)
+    bbox = torch.cat([bbox[..., :2] - bbox[..., 2:] * 0.5,
+                        bbox[..., :2] + bbox[..., 2:] * 0.5], dim=-1)
+
+    preds = torch.cat([torch.min(preds[..., :2], preds[..., 2:]),
+                        torch.max(preds[..., :2], preds[..., 2:])], dim=-1)
+    bbox = torch.cat([torch.min(bbox[..., :2], bbox[..., 2:]),
+                        torch.max(bbox[..., :2], bbox[..., 2:])], dim=-1)
+    # calculate iou
+    ix1 = torch.max(preds[..., 0], bbox[..., 0])
+    iy1 = torch.max(preds[..., 1], bbox[..., 1])
+    ix2 = torch.min(preds[..., 2], bbox[..., 2])
+    iy2 = torch.min(preds[..., 3], bbox[..., 3])
+
+    iw = (ix2 - ix1 + 1.0).clamp(min=0.)
+    ih = (iy2 - iy1 + 1.0).clamp(min=0.)
+
+    # overlaps
+    inters = iw * ih
+
+    # union
+    uni = (preds[..., 2] - preds[..., 0] + 1.0) * (preds[..., 3] - preds[..., 1] + 1.0) + (bbox[..., 2] - bbox[..., 0] + 1.0) * (
+            bbox[..., 3] - bbox[..., 1] + 1.0) - inters
+
+    # iou
+    iou = inters / (uni + eps)
+    # print("iou:\n",iou)
+
+    # inter_diag
+    cxpreds = (preds[..., 2] + preds[..., 0]) / 2
+    cypreds = (preds[..., 3] + preds[..., 1]) / 2
+
+    cxbbox = (bbox[..., 2] + bbox[..., 0]) / 2
+    cybbox = (bbox[..., 3] + bbox[..., 1]) / 2
+
+    inter_diag = (cxbbox - cxpreds) ** 2 + (cybbox - cypreds) ** 2
+    # print("inter_diag:\n",inter_diag)
+
+    # outer_diag
+    ox1 = torch.min(preds[..., 0], bbox[..., 0])
+    oy1 = torch.min(preds[..., 1], bbox[..., 1])
+    ox2 = torch.max(preds[..., 2], bbox[..., 2])
+    oy2 = torch.max(preds[..., 3], bbox[..., 3])
+
+    outer_diag = (ox1 - ox2) ** 2 + (oy1 - oy2) ** 2
+    # print("outer_diag:\n",outer_diag)
+
+    diou = iou - inter_diag / outer_diag
+    diou = torch.clamp(diou, min=-1.0, max=1.0)
+
+    diou_loss = 1 - diou
+    # print("last_loss:\n",diou_loss)
+
+    return diou
 
 
 def nms(bboxes, score_threshold, iou_threshold, sigma=0.3, method='nms'):
