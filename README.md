@@ -23,9 +23,15 @@ Subsequently, i will continue to update the code to make it more concise , and a
 | YOLOV3-\*-* | 2007trainval + 2012trainval | 2007test | 0.858 | 0.858 \| 0.860 | \+multi-scale test and flip, nms threshold is 0.45 |  
 
 ### This repo results
-| name | Train Dataset | Val Dataset | mAP | notes |
-| :----- | :----- | :------ | :-----| :-----|
-| YOLOV3-\*-* | 2007trainval + 2012trainval | 2007test | 0.811 | the last results of origin repo without multi-scale training |  
+| name | Train Dataset | Val Dataset | BatchSize | mAP | notes |
+| :----- | :----- | :------ | :-----| :-----| :-----|
+| YOLOV3-448-544 | 2007trainval + 2012trainval | 2007test | 15*50epoch | 0.780085 | baseline |
+| YOLOV3-448-544 | 2007trainval + 2012trainval | 2007test | 15*50epoch | 0.805921 | + focal | 
+| YOLOV3-448-544 | 2007trainval + 2012trainval | 2007test | 15*50epoch | 0.778626 | + GIOU |
+| YOLOV3-448-544 | 2007trainval + 2012trainval | 2007test | 15*50epoch | 0.798533 | + focal, GIOU |
+| YOLOV3-448-544 | 2007trainval + 2012trainval | 2007test | 15*50epoch | 0.803149 | + focal, DIOU | 
+| YOLOV3-448-544 | 2007trainval + 2012trainval | 2007test | 15*50epoch | 0.802956 | + focal, CIOU |
+| YOLOV3-448-544 | 2007trainval + 2012trainval | 2007test | 15*50epoch | 0.827054 | + Multi, focal, CIOU | 
 
 `Note` : 
 
