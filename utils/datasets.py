@@ -9,8 +9,6 @@ import config.yolov3_config_voc as cfg
 import cv2
 import numpy as np
 import random
-# from . import data_augment as dataAug
-# from . import tools
 
 import utils.data_augment as dataAug
 import utils.tools as tools
@@ -138,6 +136,7 @@ class VocDataset(Dataset):
             exist_positive = False
             for i in range(3):
                 anchors_xywh = np.zeros((anchors_per_scale, 4))
+                # 中心点向下取整，即到左上角，再加上0.5，移动到grid中心
                 anchors_xywh[:, 0:2] = np.floor(bbox_xywh_scaled[i, 0:2]).astype(np.int32) + 0.5  # 0.5 for compensation
                 anchors_xywh[:, 2:4] = anchors[i]
 

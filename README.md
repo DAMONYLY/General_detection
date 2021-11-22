@@ -31,7 +31,7 @@ Subsequently, i will continue to update the code to make it more concise , and a
 | YOLOV3-448-544 | 2007trainval + 2012trainval | 2007test | 15*50epoch | 0.798533 | + focal, GIOU |
 | YOLOV3-448-544 | 2007trainval + 2012trainval | 2007test | 15*50epoch | 0.803149 | + focal, DIOU | 
 | YOLOV3-448-544 | 2007trainval + 2012trainval | 2007test | 15*50epoch | 0.802956 | + focal, CIOU |
-| YOLOV3-448-544 | 2007trainval + 2012trainval | 2007test | 15*50epoch | 0.827054 | + Multi, focal, CIOU | 
+| YOLOV3-* -544 | 2007trainval + 2012trainval | 2007test | 10* 50epoch | 0.827054 | + Multi, focal, CIOU | 
 
 `Note` : 
 

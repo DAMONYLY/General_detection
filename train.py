@@ -18,8 +18,8 @@ import config.yolov3_config_voc as cfg
 from utils import cosine_lr_scheduler, model_info
 
 
-import os
-os.environ["CUDA_VISIBLE_DEVICES"]='3'
+# import os
+# os.environ["CUDA_VISIBLE_DEVICES"]='3'
 
 
 class Trainer(object):
@@ -101,8 +101,9 @@ class Trainer(object):
             mloss = torch.zeros(4)
             iter_time = 0
             for i, (imgs, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes)  in enumerate(self.train_dataloader):
-                # if i % 100 != 0:
-                    # continue
+                # if i != 0 and i % 11 == 0:
+                #     print('Done')
+                #     break
                 start_time = time.time()
                 self.scheduler.step(len(self.train_dataloader)*epoch + i)
                 imgs = imgs.to(self.device)
@@ -115,7 +116,7 @@ class Trainer(object):
 
                 p, p_d = self.model(imgs)
 
-                loss, loss_giou, loss_conf, loss_cls = self.criterion(p, p_d, label_sbbox, label_mbbox,
+                loss, loss_reg, loss_conf, loss_cls = self.criterion(p, p_d, label_sbbox, label_mbbox,
                                                   label_lbbox, sbboxes, mbboxes, lbboxes)
 
                 self.optimizer.zero_grad()
@@ -123,22 +124,22 @@ class Trainer(object):
                 self.optimizer.step()
 
                 # Update running mean of tracked metrics
-                loss_items = torch.tensor([loss_giou, loss_conf, loss_cls, loss])
+                loss_items = torch.tensor([loss_reg, loss_conf, loss_cls, loss])
                 mloss = (mloss * i + loss_items) / (i + 1)
 
                 # Print batch results
-                if i%10==0:
+                if i != 0 and i%10==0:
                     iter_time = iter_time/10
                     eta_seconds = (all_iter - (epoch - self.start_epoch) * len(self.train_dataloader) - (i - 1)) * iter_time
                     eta_str = "ETA: {}".format(datetime.timedelta(seconds=int(eta_seconds)))
-                    line = 'Epoch:[{}|{}], Batch:[{}|{}], iter_time:{:.4f}s, loss_all:{:.4f}, loss_giou:{:.4f}, loss_conf:{:.4f}, loss_cls:{:.4f}, lr:{:.4g}'.format(
+                    line = 'Epoch:[{}|{}], Batch:[{}|{}], iter_time:{:.2f}s, loss_all:{:.2f}, loss_reg:{:.2f}, loss_conf:{:.2f}, loss_cls:{:.2f}, lr:{:.4g}'.format(
                         epoch, self.epochs - 1, i, len(self.train_dataloader) - 1, iter_time, mloss[3], mloss[0],mloss[1], mloss[2], self.optimizer.param_groups[0]['lr'])
                     print(line +', ' + eta_str)
                     iter_time = 0
 
                 # multi-sclae training (320-608 pixels) every 10 batches
                 if self.multi_scale_train and (i+1)%10 == 0:
-                    self.train_dataset.img_size = random.choice(range(10,20)) * 32
+                    self.train_dataset.img_size = random.choice(range(10, 20)) * 32
                     print("multi_scale_img_size : {}".format(self.train_dataset.img_size))
                 end_time = time.time()
                 iter_time += end_time - start_time

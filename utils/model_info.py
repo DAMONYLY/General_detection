@@ -12,7 +12,5 @@ def get_model_info(model, tsize):
     params /= 1e6
     flops /= 1e9
     flops *= tsize * tsize / stride / stride * 2  # Gflops
-    # tsize is list
-    # flops *= tsize[0] * tsize[1] / stride / stride * 2  # Gflops
-    info = "Params: {:.2f}M, Gflops: {:.2f}".format(params, flops)
+    info = "Params: {:.2f}M, Gflops: {:.2f}GFLOPs".format(params, flops)
     return info

@@ -8,7 +8,7 @@ norm_name = {"bn": nn.BatchNorm2d}
 activate_name = {
     "relu": nn.ReLU,
     "leaky": nn.LeakyReLU,
-    "mish": Mish}
+    "Mish": Mish}
 
 
 class Convolutional(nn.Module):
@@ -29,8 +29,10 @@ class Convolutional(nn.Module):
             assert activate in activate_name.keys()
             if activate == "leaky":
                 self.__activate = activate_name[activate](negative_slope=0.1, inplace=True)
-            if activate == "relu":
+            elif activate == "relu":
                 self.__activate = activate_name[activate](inplace=True)
+            elif activate == "Mish":
+                self.__activate = activate_name[activate]()
 
     def forward(self, x):
         x = self.__conv(x)
@@ -38,5 +40,4 @@ class Convolutional(nn.Module):
             x = self.__norm(x)
         if self.activate:
             x = self.__activate(x)
-
         return x

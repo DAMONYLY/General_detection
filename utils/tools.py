@@ -228,6 +228,7 @@ def GIOU_xywh_torch(boxes1, boxes2):
     enclose_area = enclose_section[..., 0] * enclose_section[..., 1]
 
     GIOU = IOU - 1.0 * (enclose_area - union_area) / enclose_area
+    
     return GIOU
 def Diou_xywh_torch(preds, bbox, eps=1e-7):
     '''
@@ -289,11 +290,89 @@ def Diou_xywh_torch(preds, bbox, eps=1e-7):
     diou = iou - inter_diag / outer_diag
     diou = torch.clamp(diou, min=-1.0, max=1.0)
 
-    diou_loss = 1 - diou
+    # diou_loss = 1 - diou
     # print("last_loss:\n",diou_loss)
 
     return diou
 
+def CIOU_xywh_torch(preds, bbox, eps=1e-7):
+    '''
+    https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/loss/multibox_loss.py
+    :param preds:[[x1,y1,x2,y2], [x1,y1,x2,y2],,,]
+    :param bbox:[[x1,y1,x2,y2], [x1,y1,x2,y2],,,]
+    :param eps: eps to avoid divide 0
+    :param reduction: mean or sum
+    :return: diou-loss
+    '''
+    import math
+    # xywh to xyxy
+    preds = torch.cat([preds[..., :2] - preds[..., 2:] * 0.5,
+                        preds[..., :2] + preds[..., 2:] * 0.5], dim=-1)
+    bbox = torch.cat([bbox[..., :2] - bbox[..., 2:] * 0.5,
+                        bbox[..., :2] + bbox[..., 2:] * 0.5], dim=-1)
+
+    preds = torch.cat([torch.min(preds[..., :2], preds[..., 2:]),
+                        torch.max(preds[..., :2], preds[..., 2:])], dim=-1)
+    bbox = torch.cat([torch.min(bbox[..., :2], bbox[..., 2:]),
+                        torch.max(bbox[..., :2], bbox[..., 2:])], dim=-1)
+    ix1 = torch.max(preds[..., 0], bbox[..., 0])
+    iy1 = torch.max(preds[..., 1], bbox[..., 1])
+    ix2 = torch.min(preds[..., 2], bbox[..., 2])
+    iy2 = torch.min(preds[..., 3], bbox[..., 3])
+
+    iw = (ix2 - ix1 + 1.0).clamp(min=0.)
+    ih = (iy2 - iy1 + 1.0).clamp(min=0.)
+
+    # overlaps
+    inters = iw * ih
+
+    # union
+    uni = (preds[..., 2] - preds[..., 0] + 1.0) * (preds[..., 3] - preds[..., 1] + 1.0) + (bbox[..., 2] - bbox[..., 0] + 1.0) * (
+            bbox[..., 3] - bbox[..., 1] + 1.0) - inters
+
+    # iou
+    iou = inters / (uni + eps)
+    # print("iou:\n",iou)
+
+    # inter_diag
+    cxpreds = (preds[..., 2] + preds[..., 0]) / 2
+    cypreds = (preds[..., 3] + preds[..., 1]) / 2
+
+    cxbbox = (bbox[..., 2] + bbox[..., 0]) / 2
+    cybbox = (bbox[..., 3] + bbox[..., 1]) / 2
+
+    inter_diag = (cxbbox - cxpreds) ** 2 + (cybbox - cypreds) ** 2
+
+    # outer_diag
+    ox1 = torch.min(preds[..., 0], bbox[..., 0])
+    oy1 = torch.min(preds[..., 1], bbox[..., 1])
+    ox2 = torch.max(preds[..., 2], bbox[..., 2])
+    oy2 = torch.max(preds[..., 3], bbox[..., 3])
+
+    outer_diag = (ox1 - ox2) ** 2 + (oy1 - oy2) ** 2
+
+    diou = iou - inter_diag / outer_diag
+    # print("diou:\n",diou)
+
+    # calculate v,alpha
+    wbbox = bbox[..., 2] - bbox[..., 0] + 1.0
+    hbbox = bbox[..., 3] - bbox[..., 1] + 1.0
+    wpreds = preds[..., 2] - preds[..., 0] + 1.0
+    hpreds = preds[..., 3] - preds[..., 1] + 1.0
+    v = torch.pow((torch.atan(wbbox / hbbox) - torch.atan(wpreds / hpreds)), 2) * (4 / (math.pi ** 2))
+    alpha = v / (1 - iou + v)
+    ciou = diou - alpha * v
+    ciou = torch.clamp(ciou, min=-1.0, max=1.0)
+
+    # ciou_loss = 1 - ciou
+    # if reduction == 'mean':
+    #     loss = torch.mean(ciou_loss)
+    # elif reduction == 'sum':
+    #     loss = torch.sum(ciou_loss)
+    # else:
+    #     raise NotImplementedError
+    # print("last_loss:\n",loss)
+    return ciou
 
 def nms(bboxes, score_threshold, iou_threshold, sigma=0.3, method='nms'):
     """

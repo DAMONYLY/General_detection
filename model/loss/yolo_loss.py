@@ -95,8 +95,8 @@ class YoloV3Loss(nn.Module):
 
 
         # loss giou
-        # iou = tools.GIOU_xywh_torch(p_d_xywh, label_xywh).unsqueeze(-1)
-        loss_iou = tools.Diou_xywh_torch(p_d_xywh, label_xywh).unsqueeze(-1)
+        loss_iou = tools.CIOU_xywh_torch(p_d_xywh, label_xywh).unsqueeze(-1)
+        # loss_iou = tools.Diou_xywh_torch(p_d_xywh, label_xywh).unsqueeze(-1)
         # The scaled weight of bbox is used to balance the impact of small objects and large objects on loss.
         bbox_loss_scale = 2.0 - 1.0 * label_xywh[..., 2:3] * label_xywh[..., 3:4] / (img_size ** 2)
         loss_reg = label_obj_mask * bbox_loss_scale * (1.0 - loss_iou) * label_mix

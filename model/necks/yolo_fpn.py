@@ -41,98 +41,98 @@ class FPN_YOLOV3(nn.Module):
         # large
         self.__conv_set_0 = nn.Sequential(
             Convolutional(filters_in=fi_0, filters_out=512, kernel_size=1, stride=1, pad=0, norm="bn",
-                          activate="leaky"),
+                          activate="Mish"),
             Convolutional(filters_in=512, filters_out=1024, kernel_size=3, stride=1, pad=1, norm="bn",
-                          activate="leaky"),
+                          activate="Mish"),
             Convolutional(filters_in=1024, filters_out=512, kernel_size=1, stride=1, pad=0, norm="bn",
-                          activate="leaky"),
+                          activate="Mish"),
             Convolutional(filters_in=512, filters_out=1024, kernel_size=3, stride=1, pad=1, norm="bn",
-                          activate="leaky"),
+                          activate="Mish"),
             Convolutional(filters_in=1024, filters_out=512, kernel_size=1, stride=1,pad=0, norm="bn",
-                          activate="leaky"),
+                          activate="Mish"),
         )
-        self.decoupled  = True
+        self.decoupled  = False
         if self.decoupled:
             # FPN多层共享head
             self.cls_conv_0 = nn.Sequential(
                 Convolutional(filters_in=512, filters_out=256, kernel_size=1, stride=1,
-                                pad=0, norm="bn", activate="leaky"),#cls_conv
+                                pad=0, norm="bn", activate="Mish"),#cls_conv
                 Convolutional(filters_in=256, filters_out=256, kernel_size=3, stride=1,
-                                pad=1, norm="bn", activate="leaky"),#cls_conv
+                                pad=1, norm="bn", activate="Mish"),#cls_conv
                 Convolutional(filters_in=256, filters_out=256, kernel_size=3, stride=1,
-                                pad=1, norm="bn", activate="leaky"),#cls_conv
+                                pad=1, norm="bn", activate="Mish"),#cls_conv
                 Convolutional(filters_in=256, filters_out=cls_0, kernel_size=1,
                                 stride=1, pad=0),#cls_conv
             )
             # TODO: now reg and iou are still together
             self.reg_conv_0 = nn.Sequential(
                 Convolutional(filters_in=512, filters_out=256, kernel_size=1, stride=1,
-                                pad=0, norm="bn", activate="leaky"),#cls_conv
+                                pad=0, norm="bn", activate="Mish"),#cls_conv
                 Convolutional(filters_in=256, filters_out=256, kernel_size=3, stride=1,
-                                pad=1, norm="bn", activate="leaky"),#cls_conv
+                                pad=1, norm="bn", activate="Mish"),#cls_conv
                 Convolutional(filters_in=256, filters_out=256, kernel_size=3, stride=1,
-                                pad=1, norm="bn", activate="leaky"),#cls_conv
+                                pad=1, norm="bn", activate="Mish"),#cls_conv
                 Convolutional(filters_in=256, filters_out=reg_0, kernel_size=1,
                                 stride=1, pad=0),#cls_conv
             )
         else:
             self.__conv0_0 = Convolutional(filters_in=512, filters_out=1024, kernel_size=3, stride=1,
-                                            pad=1, norm="bn", activate="leaky")
+                                            pad=1, norm="bn", activate="Mish")
             self.__conv0_1 = Convolutional(filters_in=1024, filters_out=fo_0, kernel_size=1,
                                             stride=1, pad=0)     
 
         self.__conv0 = Convolutional(filters_in=512, filters_out=256, kernel_size=1, stride=1, pad=0, norm="bn",
-                                      activate="leaky")
+                                      activate="Mish")
         self.__upsample0 = Upsample(scale_factor=2)
         self.__route0 = Route()
         #medium
 
         self.__conv_set_1 = nn.Sequential(
             Convolutional(filters_in=fi_1+256, filters_out=256, kernel_size=1, stride=1, pad=0, norm="bn",
-                        activate="leaky"),
+                        activate="Mish"),
             Convolutional(filters_in=256, filters_out=512, kernel_size=3, stride=1, pad=1, norm="bn",
-                        activate="leaky"),
+                        activate="Mish"),
             Convolutional(filters_in=512, filters_out=256, kernel_size=1, stride=1, pad=0, norm="bn",
-                        activate="leaky"),
+                        activate="Mish"),
             Convolutional(filters_in=256, filters_out=512, kernel_size=3, stride=1, pad=1, norm="bn",
-                        activate="leaky"),
+                        activate="Mish"),
             Convolutional(filters_in=512, filters_out=256, kernel_size=1, stride=1, pad=0, norm="bn",
-                        activate="leaky"),
+                        activate="Mish"),
         )
         if self.decoupled:
             self.change_conv_1 = Convolutional(filters_in=256, filters_out=512, kernel_size=1, stride=1, pad=0, norm="bn",
-                                                activate="leaky")
+                                                activate="Mish")
         else:
             self.__conv1_0 = Convolutional(filters_in=256, filters_out=512, kernel_size=3, stride=1,
-                                        pad=1, norm="bn", activate="leaky")
+                                        pad=1, norm="bn", activate="Mish")
             self.__conv1_1 = Convolutional(filters_in=512, filters_out=fo_1, kernel_size=1,
                                         stride=1, pad=0)
 
 
         self.__conv1 = Convolutional(filters_in=256, filters_out=128, kernel_size=1, stride=1, pad=0, norm="bn",
-                                     activate="leaky")
+                                     activate="Mish")
         self.__upsample1 = Upsample(scale_factor=2)
         self.__route1 = Route()
         # small
 
         self.__conv_set_2 = nn.Sequential(
             Convolutional(filters_in=fi_2+128, filters_out=128, kernel_size=1, stride=1, pad=0, norm="bn",
-                        activate="leaky"),
+                        activate="Mish"),
             Convolutional(filters_in=128, filters_out=256, kernel_size=3, stride=1, pad=1, norm="bn",
-                        activate="leaky"),
+                        activate="Mish"),
             Convolutional(filters_in=256, filters_out=128, kernel_size=1, stride=1, pad=0, norm="bn",
-                        activate="leaky"),
+                        activate="Mish"),
             Convolutional(filters_in=128, filters_out=256, kernel_size=3, stride=1, pad=1, norm="bn",
-                        activate="leaky"),
+                        activate="Mish"),
             Convolutional(filters_in=256, filters_out=128, kernel_size=1, stride=1, pad=0, norm="bn",
-                        activate="leaky"),
+                        activate="Mish"),
         )
         if self.decoupled:
             self.change_conv_2 = Convolutional(filters_in=128, filters_out=512, kernel_size=1, stride=1, pad=0, norm="bn",
-                                                activate="leaky")
+                                                activate="Mish")
         else:
             self.__conv2_0 = Convolutional(filters_in=128, filters_out=256, kernel_size=3, stride=1,
-                                        pad=1, norm="bn", activate="leaky")
+                                        pad=1, norm="bn", activate="Mish")
             self.__conv2_1 = Convolutional(filters_in=256, filters_out=fo_2, kernel_size=1,
                                         stride=1, pad=0)
 

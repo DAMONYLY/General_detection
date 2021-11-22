@@ -1,6 +1,6 @@
 # coding=utf-8
 # project
-DATA_PATH = "/raid/yaoliangyong/General_detection/dataset/VOC"
+DATA_PATH = "/raid/yaoliangyong/General_detection/dataset"
 PROJECT_PATH = "/raid/yaoliangyong/General_detection"
 
 
@@ -22,10 +22,10 @@ MODEL = {"ANCHORS":[[(1.25, 1.625), (2.0, 3.75), (4.125, 2.875)],  # Anchors for
 TRAIN = {
          "TRAIN_IMG_SIZE":448,
          "AUGMENT":True,
-         "BATCH_SIZE":30,
-         "MULTI_SCALE_TRAIN":False,
+         "BATCH_SIZE":10,
+         "MULTI_SCALE_TRAIN":True,
          "IOU_THRESHOLD_LOSS":0.5,
-         "EPOCHS":400,
+         "EPOCHS":50,
          "NUMBER_WORKERS":4,
          "MOMENTUM":0.9,
          "WEIGHT_DECAY":0.0005,

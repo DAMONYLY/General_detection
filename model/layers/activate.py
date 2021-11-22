@@ -8,8 +8,8 @@ class Mish(nn.Module):
         super().__init__()
         # print("Mish activation loaded...")
     def forward(self, x):
-        x = x * (torch.tanh(F.softplus(x)))
-        return x
+
+        return x * (torch.tanh(F.softplus(x)))
 
 class Swish(nn.Module):
     def __init__(self):
