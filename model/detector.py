@@ -51,9 +51,9 @@ class General_detector(nn.Module):
 
         label_assign, cls_label, reg_label = self.label_assign(anchors, targets, proposals_reg, proposals_cls)
 
-        losses = self.loss(label_assign, proposals_cls, cls_label, proposals_reg, reg_label) # reg_loss, cls_loss, conf_loss
+        losses, losses_xy, losses_wh, losses_cls = self.loss(label_assign, proposals_cls, cls_label, proposals_reg, reg_label) # reg_loss, cls_loss, conf_loss
 
-        return losses
+        return losses, losses_xy, losses_wh, losses_cls
 
     def flatten_anchors(self, anchors, feature_dim):
         """

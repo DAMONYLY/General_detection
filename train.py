@@ -127,12 +127,13 @@ class Trainer(object):
                 # mbboxes = mbboxes.to(self.device)
                 # lbboxes = lbboxes.to(self.device)
 
-                p, p_d = self.model(imgs, bboxes)
+                # p, p_d = self.model(imgs, bboxes)
+                loss, loss_reg, loss_conf, loss_cls = self.model(imgs, bboxes)
                 # 这里返回的应当是不同层级Head出来的结果
                 # metrics(p), 进行正负样本匹配
                 # 随后计算loss
-                loss, loss_reg, loss_conf, loss_cls = self.criterion(p, p_d, label_sbbox, label_mbbox,
-                                                  label_lbbox, sbboxes, mbboxes, lbboxes)
+                # loss, loss_reg, loss_conf, loss_cls = self.criterion(p, p_d, label_sbbox, label_mbbox,
+                #                                   label_lbbox, sbboxes, mbboxes, lbboxes)
 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -141,7 +142,7 @@ class Trainer(object):
                 # Update running mean of tracked metrics
                 loss_items = torch.tensor([loss_reg, loss_conf, loss_cls, loss])
                 mloss = (mloss * i + loss_items) / (i + 1)
-                print_fre = 50
+                print_fre = 1
                 # Print batch results
                 if i != 0 and i% print_fre==0:
                     iter_time = iter_time/10
