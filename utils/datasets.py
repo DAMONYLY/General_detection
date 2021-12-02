@@ -37,6 +37,14 @@ class VocDataset(Dataset):
 
 
         img, bboxes = dataAug.Mixup()(img_org, bboxes_org, img_mix, bboxes_mix)
+        output = np.zeros(shape=(150, 6))
+        num = 0
+        for bbox in bboxes:
+            output[num] = bbox
+            num += 1
+        output[num] = num
+        if True:
+            return img, output
         del img_org, bboxes_org, img_mix, bboxes_mix
 
 
@@ -49,7 +57,7 @@ class VocDataset(Dataset):
         sbboxes = torch.from_numpy(sbboxes).float()
         mbboxes = torch.from_numpy(mbboxes).float()
         lbboxes = torch.from_numpy(lbboxes).float()
-
+        
         return img, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes
 
 
@@ -177,7 +185,7 @@ class VocDataset(Dataset):
 
         label_sbbox, label_mbbox, label_lbbox = label
         sbboxes, mbboxes, lbboxes = bboxes_xywh
-
+        # [56, 56, 3, 26], [28, 28, 3, 26], [14, 14, 3, 26], [150, 4], [150, 4], [150, 4]
         return label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes
 
 

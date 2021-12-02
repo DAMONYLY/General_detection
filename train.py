@@ -1,4 +1,7 @@
 import logging
+
+from torch._C import device
+from model.build_model import build
 import utils.gpu as gpu
 from model.yolov3 import Yolov3
 from model.loss.yolo_loss import YoloV3Loss
@@ -14,7 +17,8 @@ import argparse
 from eval.evaluator import *
 from utils.tools import *
 from tensorboardX import SummaryWriter
-import config.yolov3_config_voc as cfg
+# import config.yolov3_config_voc as cfg
+import config.cfg_example as cfg
 from utils import cosine_lr_scheduler, model_info
 
 
@@ -24,26 +28,34 @@ from utils import cosine_lr_scheduler, model_info
 
 class Trainer(object):
     def __init__(self,  weight_path, resume, gpu_id):
+        #----------- 1. init seed for reproduce -----------------------------------
         init_seeds(0)
+
+        #----------- 2. get gpu info -----------------------------------------------
         self.device = gpu.select_device(gpu_id)
         self.start_epoch = 0
         self.best_mAP = 0.
         self.epochs = cfg.TRAIN["EPOCHS"]
         self.weight_path = weight_path
         self.multi_scale_train = cfg.TRAIN["MULTI_SCALE_TRAIN"]
+
+        #----------- 3. get train dataset ------------------------------------------
         self.train_dataset = data.VocDataset(anno_file_type="train", img_size=cfg.TRAIN["TRAIN_IMG_SIZE"])
         self.train_dataloader = DataLoader(self.train_dataset,
                                            batch_size=cfg.TRAIN["BATCH_SIZE"],
                                            num_workers=cfg.TRAIN["NUMBER_WORKERS"],
-                                           shuffle=True)
-        self.model = Yolov3().to(self.device)
+                                           shuffle=True,
+                                           drop_last = True)
+
+        #----------- 4. build model -----------------------------------------------
+        self.model = build(cfg).double().to(self.device)
         self.model_info = model_info.get_model_info(self.model, cfg.TEST['TEST_IMG_SIZE'])
         print("Model Summary: {}".format(self.model_info))
         # self.model.apply(tools.weights_init_normal)
 
+        #------------5. init optimizer, criterion, scheduler, weights-----------------------
         self.optimizer = optim.SGD(self.model.parameters(), lr=cfg.TRAIN["LR_INIT"],
                                    momentum=cfg.TRAIN["MOMENTUM"], weight_decay=cfg.TRAIN["WEIGHT_DECAY"])
-        #self.optimizer = optim.Adam(self.model.parameters(), lr = lr_init, weight_decay=0.9995)
 
         self.criterion = YoloV3Loss(anchors=cfg.MODEL["ANCHORS"], strides=cfg.MODEL["STRIDES"],
                                     iou_threshold_loss=cfg.TRAIN["IOU_THRESHOLD_LOSS"])
@@ -100,22 +112,25 @@ class Trainer(object):
 
             mloss = torch.zeros(4)
             iter_time = 0
-            for i, (imgs, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes)  in enumerate(self.train_dataloader):
+            for i, (imgs, bboxes)  in enumerate(self.train_dataloader):
+            # for i, (imgs, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes)  in enumerate(self.train_dataloader):
                 # if i != 0 and i % 11 == 0:
                 #     print('Done')
                 #     break
                 start_time = time.time()
                 self.scheduler.step(len(self.train_dataloader)*epoch + i)
                 imgs = imgs.to(self.device)
-                label_sbbox = label_sbbox.to(self.device)
-                label_mbbox = label_mbbox.to(self.device)
-                label_lbbox = label_lbbox.to(self.device)
-                sbboxes = sbboxes.to(self.device)
-                mbboxes = mbboxes.to(self.device)
-                lbboxes = lbboxes.to(self.device)
+                # label_sbbox = label_sbbox.to(self.device)
+                # label_mbbox = label_mbbox.to(self.device)
+                # label_lbbox = label_lbbox.to(self.device)
+                # sbboxes = sbboxes.to(self.device)
+                # mbboxes = mbboxes.to(self.device)
+                # lbboxes = lbboxes.to(self.device)
 
-                p, p_d = self.model(imgs)
-
+                p, p_d = self.model(imgs, bboxes)
+                # 这里返回的应当是不同层级Head出来的结果
+                # metrics(p), 进行正负样本匹配
+                # 随后计算loss
                 loss, loss_reg, loss_conf, loss_cls = self.criterion(p, p_d, label_sbbox, label_mbbox,
                                                   label_lbbox, sbboxes, mbboxes, lbboxes)
 
@@ -126,9 +141,9 @@ class Trainer(object):
                 # Update running mean of tracked metrics
                 loss_items = torch.tensor([loss_reg, loss_conf, loss_cls, loss])
                 mloss = (mloss * i + loss_items) / (i + 1)
-
+                print_fre = 50
                 # Print batch results
-                if i != 0 and i%10==0:
+                if i != 0 and i% print_fre==0:
                     iter_time = iter_time/10
                     eta_seconds = (all_iter - (epoch - self.start_epoch) * len(self.train_dataloader) - (i - 1)) * iter_time
                     eta_str = "ETA: {}".format(datetime.timedelta(seconds=int(eta_seconds)))
@@ -138,7 +153,7 @@ class Trainer(object):
                     iter_time = 0
 
                 # multi-sclae training (320-608 pixels) every 10 batches
-                if self.multi_scale_train and (i+1)%10 == 0:
+                if self.multi_scale_train and (i+1) % print_fre == 0:
                     self.train_dataset.img_size = random.choice(range(10, 20)) * 32
                     print("multi_scale_img_size : {}".format(self.train_dataset.img_size))
                 end_time = time.time()
@@ -155,8 +170,8 @@ class Trainer(object):
                     mAP = mAP / self.train_dataset.num_classes
                     print('mAP:%g'%(mAP))
 
-            self.__save_model_weights(epoch, mAP)
-            print('best mAP : %g' % (self.best_mAP))
+            #self.__save_model_weights(epoch, mAP)
+            #print('best mAP : %g' % (self.best_mAP))
 
 
 if __name__ == "__main__":
@@ -166,6 +181,4 @@ if __name__ == "__main__":
     parser.add_argument('--gpu_id', type=int, default=0, help='gpu id')
     opt = parser.parse_args()
 
-    Trainer(weight_path=opt.weight_path,
-            resume=opt.resume,
-            gpu_id=opt.gpu_id).train()
+    Trainer(weight_path=opt.weight_path, resume=opt.resume, gpu_id=opt.gpu_id).train()

@@ -67,7 +67,7 @@ class Darknet53(nn.Module):
         x2_5 = self.__rb_5_2_4(x2_4)
         x2_6 = self.__rb_5_2_5(x2_5)
         x2_7 = self.__rb_5_2_6(x2_6)
-        x2_8 = self.__rb_5_2_7(x2_7)  # small
+        x2_8 = self.__rb_5_2_7(x2_7)  # small, 8x
 
         x3_0 = self.__conv_5_3(x2_8)
         x3_1 = self.__rb_5_3_0(x3_0)
@@ -77,12 +77,12 @@ class Darknet53(nn.Module):
         x3_5 = self.__rb_5_3_4(x3_4)
         x3_6 = self.__rb_5_3_5(x3_5)
         x3_7 = self.__rb_5_3_6(x3_6)
-        x3_8 = self.__rb_5_3_7(x3_7)  # medium
+        x3_8 = self.__rb_5_3_7(x3_7)  # medium, 16x
 
         x4_0 = self.__conv_5_4(x3_8)
         x4_1 = self.__rb_5_4_0(x4_0)
         x4_2 = self.__rb_5_4_1(x4_1)
         x4_3 = self.__rb_5_4_2(x4_2)
-        x4_4 = self.__rb_5_4_3(x4_3)  # large
+        x4_4 = self.__rb_5_4_3(x4_3)  # large, 32x
 
         return x2_8, x3_8, x4_4
