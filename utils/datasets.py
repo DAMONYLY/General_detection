@@ -37,12 +37,12 @@ class VocDataset(Dataset):
 
 
         img, bboxes = dataAug.Mixup()(img_org, bboxes_org, img_mix, bboxes_mix)
-        output = np.zeros(shape=(150, 6))
+        output = np.zeros(shape=(100, 6))
         num = 0
         for bbox in bboxes:
             output[num] = bbox
             num += 1
-        output[num] = num
+        # output[num] = num
         if True:
             return img, output
         del img_org, bboxes_org, img_mix, bboxes_mix

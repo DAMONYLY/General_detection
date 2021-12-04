@@ -9,6 +9,7 @@ from model.loss.build_loss import build_loss
 from model.metrics.build_metrics import build_metrics
 from model.necks.build_fpn import build_fpn
 
+import time
 class General_detector(nn.Module):
     def __init__(self, cfg) -> None:
         super(General_detector, self).__init__()
@@ -21,7 +22,8 @@ class General_detector(nn.Module):
         self.head = build_head(cfg.MODEL['head'], self.channel, cfg.MODEL['ANCHORS_PER_SCLAE'])
 
         self.anchors = Anchors()
-
+        # self.all_anchors = self.anchors(torch.zeros(size=(self.batch_size, 3, cfg.TRAIN['TRAIN_IMG_SIZE'],cfg.TRAIN['TRAIN_IMG_SIZE']),
+        #                                 dtype=torch.double).cuda())
         self.label_assign = build_metrics(cfg.MODEL['metrics'])
         
         self.loss = build_loss(cfg.MODEL['loss'], cfg)
@@ -33,26 +35,27 @@ class General_detector(nn.Module):
             targets (list[BoxList]): ground-truth boxes present in the image (optional)
         Returns:
             result (list[BoxList] or dict[Tensor]): the output from the model.
-                During training, it returns a dict[Tensor] which contains the losses.
-                During testing, it returns list[BoxList] contains additional fields
-                like `scores`, `labels` and `mask` (for Mask R-CNN models).
         """
-        if targets is None:
-            return 0
+        # time1 = time.time()
         features8, features16, features32 = self.backbone(images) # {32: feature, 16: feature, 8: feature}
+        # time2 = time.time()
         features = [features32, features16, features8]
         features = self.fpn([features32, features16, features8]) # {32: feature, 16: feature, 8: feature}
-
+        # time3 = time.time()
         proposals_reg, proposals_cls = self.head(features) # {32: proposal, 16: proposal, 8: proposal}
-
+        # time4 = time.time()
+        if targets is None:
+            return proposals_reg, proposals_cls
         proposals_reg = self.flatten_anchors(proposals_reg, 5)
         proposals_cls = self.flatten_anchors(proposals_cls, 20)
         anchors = self.anchors(images)
-
+        # time5 = time.time()
         label_assign, cls_label, reg_label = self.label_assign(anchors, targets, proposals_reg, proposals_cls)
-
+        # time6 = time.time()
         losses, losses_xy, losses_wh, losses_cls = self.loss(label_assign, proposals_cls, cls_label, proposals_reg, reg_label) # reg_loss, cls_loss, conf_loss
-
+        # time7 = time.time()
+        # print('backbone:', time2 - time1, 'fpn:', time3 - time2, 'head:', time4 - time3, 'anchor:', time5 - time4,
+            #   'label_assign:', time6 - time5, 'loss:', time7 - time6)
         return losses, losses_xy, losses_wh, losses_cls
 
     def flatten_anchors(self, anchors, feature_dim):

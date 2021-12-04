@@ -12,7 +12,7 @@ from utils.tools import *
 
 
 class label_assign(nn.Module):
-    def __init__(self, metrics_type, pos_iou_thr = 0.1, neg_iou_thr = 0.3) -> None:
+    def __init__(self, metrics_type, pos_iou_thr = 0.3, neg_iou_thr = 0.3) -> None:
         super(label_assign, self).__init__()
         self.metrics = metrics_type
         self.pos_iou_thr = pos_iou_thr
@@ -20,7 +20,7 @@ class label_assign(nn.Module):
 
 
 
-    def forward(self, anchors, target, regressions, classifications):
+    def forward(self, anchor, target, regressions, classifications):
         # TODO
         """
         Arguments:
@@ -34,9 +34,9 @@ class label_assign(nn.Module):
         cls_label_assign = []
         reg_label_assign = []
         positive_indices_all = []
-        anchor = anchors[0, :, :]
+        # anchor = anchors[:, :]
         batch_size = target.shape[0]
-        device = target[0].device
+        device = target.device
         # classifications = torch.rand((1, 150, 20))
 
         for idx in range(batch_size):
@@ -59,25 +59,26 @@ class label_assign(nn.Module):
             # -------------- compute the classification loss ------------------------------ #
             cls_targets = torch.zeros_like(classification).to(device=device)
             # 比下界的置信度小，则为负样本，置0
-            cls_targets[torch.lt(max_overlaps, self.neg_iou_thr), :] = 0
+            # cls_targets[torch.lt(max_overlaps, self.neg_iou_thr), :] = 0
             # 最大iou是否比正样本的iou界大
             positive_indices = torch.ge(max_overlaps, self.pos_iou_thr)
 
             num_positive_anchors = positive_indices.sum()
             #每一行包括当前行的anchor所匹配上的GT box
             assigned_annotations = bbox_annotation[argmax_overlaps, :]
-            cls_targets[positive_indices, :] = 0
+            # cls_targets[positive_indices, :] = 0
             # 对应类别赋值为1
             cls_targets[positive_indices, assigned_annotations[positive_indices, 4].long()] = 1
 
             # ---------------------------- compute regression loss -------------------------------- #
             reg_targets = torch.zeros_like(regression).to(device=device)
+            # print('num_positive_anchors:',num_positive_anchors)
             if num_positive_anchors > 0:
                 positive_anchors = anchor[positive_indices, :]
                 gt_boxes = assigned_annotations[positive_indices, :]
                 reg_target = self.encode(positive_anchors, gt_boxes)
             else:
-                reg_target = torch.tensor(0).float().cuda(device=device)
+                reg_target = torch.tensor(0).double().cuda(device=device)
             reg_targets[positive_indices, :4] = reg_target
             cls_label_assign.append(cls_targets)
             reg_label_assign.append(reg_targets)
@@ -109,8 +110,8 @@ class label_assign(nn.Module):
 
         # targets_dx = (gt_ctr_x - ex_ctr_x) / ex_widths
         # targets_dy = (gt_ctr_y - ex_ctr_y) / ex_heights
-        targets_dx = gt_ctr_x - gt_ctr_x.to(torch.int16).to(dtype)
-        targets_dy = gt_ctr_y - gt_ctr_y.to(torch.int16).to(dtype)
+        targets_dx = gt_ctr_x - ex_ctr_x.to(torch.int16).to(dtype)
+        targets_dy = gt_ctr_y - ex_ctr_y.to(torch.int16).to(dtype)
 
         targets_dw = torch.log(gt_widths / ex_widths)
         targets_dh = torch.log(gt_heights / ex_heights)
