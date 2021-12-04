@@ -44,8 +44,7 @@ class Trainer(object):
         self.train_dataloader = DataLoader(self.train_dataset,
                                            batch_size=cfg.TRAIN["BATCH_SIZE"],
                                            num_workers=cfg.TRAIN["NUMBER_WORKERS"],
-                                           shuffle=True,
-                                           drop_last = True)
+                                           shuffle=True)
 
         #----------- 4. build model -----------------------------------------------
         self.model = build(cfg).double().to(self.device)
@@ -57,8 +56,8 @@ class Trainer(object):
         self.optimizer = optim.SGD(self.model.parameters(), lr=cfg.TRAIN["LR_INIT"],
                                    momentum=cfg.TRAIN["MOMENTUM"], weight_decay=cfg.TRAIN["WEIGHT_DECAY"])
 
-        self.criterion = YoloV3Loss(anchors=cfg.MODEL["ANCHORS"], strides=cfg.MODEL["STRIDES"],
-                                    iou_threshold_loss=cfg.TRAIN["IOU_THRESHOLD_LOSS"])
+        # self.criterion = YoloV3Loss(anchors=cfg.MODEL["ANCHORS"], strides=cfg.MODEL["STRIDES"],
+        #                             iou_threshold_loss=cfg.TRAIN["IOU_THRESHOLD_LOSS"])
 
         self.__load_model_weights(weight_path, resume)
 
@@ -120,6 +119,7 @@ class Trainer(object):
                 start_time = time.time()
                 self.scheduler.step(len(self.train_dataloader)*epoch + i)
                 imgs = imgs.to(self.device)
+                bboxes = bboxes.to(self.device)
                 # label_sbbox = label_sbbox.to(self.device)
                 # label_mbbox = label_mbbox.to(self.device)
                 # label_lbbox = label_lbbox.to(self.device)
@@ -142,7 +142,7 @@ class Trainer(object):
                 # Update running mean of tracked metrics
                 loss_items = torch.tensor([loss_reg, loss_conf, loss_cls, loss])
                 mloss = (mloss * i + loss_items) / (i + 1)
-                print_fre = 1
+                print_fre = 10
                 # Print batch results
                 if i != 0 and i% print_fre==0:
                     iter_time = iter_time/10

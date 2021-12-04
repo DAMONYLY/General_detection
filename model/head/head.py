@@ -18,8 +18,8 @@ class Head(nn.Module):
         self.reg_s = nn.Sequential(
             Convolutional(filters_in=channel_in, filters_out=channel_mid, 
                             kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
-            Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
-                            kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+            # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            # kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
             Convolutional(filters_in=channel_mid, filters_out=reg_channel * num_anchor, 
                             kernel_size=1, stride=1, pad=0),
         )
@@ -27,8 +27,8 @@ class Head(nn.Module):
         self.cls_s = nn.Sequential(
             Convolutional(filters_in=channel_in, filters_out=channel_mid, 
                             kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
-            Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
-                            kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+            # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            # kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
             Convolutional(filters_in=channel_mid, filters_out=cls_channel * num_anchor, 
                             kernel_size=1, stride=1, pad=0),
         )
@@ -36,8 +36,8 @@ class Head(nn.Module):
         self.reg_m = nn.Sequential(
             Convolutional(filters_in=channel_in, filters_out=channel_mid, 
                             kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
-            Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
-                            kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+            # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            # kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
             Convolutional(filters_in=channel_mid, filters_out=reg_channel * num_anchor, 
                             kernel_size=1, stride=1, pad=0),
         )
@@ -45,8 +45,8 @@ class Head(nn.Module):
         self.cls_m = nn.Sequential(
             Convolutional(filters_in=channel_in, filters_out=channel_mid, 
                             kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
-            Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
-                            kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+            # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            # kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
             Convolutional(filters_in=channel_mid, filters_out=cls_channel * num_anchor, 
                             kernel_size=1, stride=1, pad=0),
         )
@@ -54,8 +54,8 @@ class Head(nn.Module):
         self.reg_l = nn.Sequential(
             Convolutional(filters_in=channel_in, filters_out=channel_mid, 
                             kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
-            Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
-                            kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+            # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            # kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
             Convolutional(filters_in=channel_mid, filters_out=reg_channel * num_anchor, 
                             kernel_size=1, stride=1, pad=0),
         )
@@ -63,8 +63,8 @@ class Head(nn.Module):
         self.cls_l = nn.Sequential(
             Convolutional(filters_in=channel_in, filters_out=channel_mid, 
                             kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
-            Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
-                            kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+            # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            # kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
             Convolutional(filters_in=channel_mid, filters_out=cls_channel * num_anchor, 
                             kernel_size=1, stride=1, pad=0),
         )
@@ -72,10 +72,10 @@ class Head(nn.Module):
         """Return feature maps.
 
         Arguments:
-            input (list[torch.Tensor]): the out feature of fpn
+            inputs (list[torch.Tensor]): the out feature of fpn. [small, medium, large]
 
         Returns:
-            list(Tensor): list of head feature maps, eg. [reg], [cls]
+            list(Tensor): list of head feature maps, eg. [reg_s, reg_m, reg_l], [cls_s, cls_m, cls_l]
         """
         s, m, l = inputs
 
