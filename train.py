@@ -22,8 +22,8 @@ import config.cfg_example as cfg
 from utils import cosine_lr_scheduler, model_info
 
 
-# import os
-# os.environ["CUDA_VISIBLE_DEVICES"]='3'
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]='1'
 
 
 class Trainer(object):

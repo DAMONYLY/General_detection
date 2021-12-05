@@ -170,6 +170,25 @@ def iou_xyxy_torch(boxes1, boxes2):
     IOU = 1.0 * inter_area / union_area
     return IOU
 
+def iou_xyxy_torch_batch(boxes1, boxes2):
+    """
+    [B, N, 4] with [B, M, 4] return [B, N, M]
+    """
+
+    boxes1_area = torch.prod(boxes1[..., 2:] - boxes1[..., :2], 2)
+    boxes2_area = torch.prod(boxes2[..., 2:] - boxes2[..., :2], 2)
+
+    # 计算出boxes1与boxes2相交部分的左上角坐标、右下角坐标
+    left_up = torch.max(boxes1[..., None, :2], boxes2[:, None, :, :2])
+    right_down = torch.min(boxes1[..., None, 2:], boxes2[:, None, :, 2:])
+
+    # 因为两个boxes没有交集时，(right_down - left_up) < 0，所以maximum可以保证当两个boxes没有交集时，它们之间的iou为0
+    inter_section = torch.max(right_down - left_up, torch.zeros_like(left_up))
+    inter_area = torch.prod(inter_section, 3)
+
+    union_area = boxes1_area[..., None] + boxes2_area[:, None, :] - inter_area
+    IOU = 1.0 * inter_area / union_area
+    return IOU
 
 def iou_xywh_torch(boxes1, boxes2):
     """

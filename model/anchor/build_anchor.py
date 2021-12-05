@@ -48,14 +48,14 @@ class Anchors(nn.Module):
         all_anchors = all_anchors.reshape(-1, 4)
         return all_anchors
 
-    def forward(self, image):
+    def forward(self, image, only_anchors = False):
         """
         Args:
             image (torch.Tensor(B, C, W, H)): the image need to process
 
 
         Returns:
-            anchors (torch.Tensor(X, 4)): anchor based on input image size with xyxy (bottom left, top right)
+            anchors (torch.Tensor(levels, num_anchors, 4)): anchor based on input image size with xyxy (bottom left, top right)
             X = (size/stride1)**2 *num_anchor + (size/stride2)**2 *num_anchor + (size/stride3)**2 *num_anchor
             large + medium + small
         """
@@ -69,10 +69,13 @@ class Anchors(nn.Module):
         for idx, level in enumerate(self.pyramid_levels):
 
             base_anchors = self.make_base_anchor(self.sizes[idx], self.ratios, self.scales)
-            one_anchors = self.generate_anchor_single_level(image_shapes[idx], self.strides[idx], base_anchors)
+            if only_anchors:
+                one_anchors = base_anchors
+            else:
+                one_anchors = self.generate_anchor_single_level(image_shapes[idx], self.strides[idx], base_anchors)
             all_anchors.append(one_anchors)
 
-        all_anchors = torch.cat((all_anchors), dim=0)
+        all_anchors = torch.stack((all_anchors), dim=0)
         return all_anchors.type(dtype).to(device)
 
 if __name__ == "__main__":

@@ -6,9 +6,9 @@
 from model.metrics.general_metrics import label_assign
 
 
-def build_metrics(type):
+def build_metrics(cfg, type):
     if type == 'yolo':
         # metrics = label_assign('iou')
-        return label_assign('iou')
+        return label_assign(cfg, 'iou')
     else:
         raise NotImplementedError

@@ -1,5 +1,6 @@
 '目前是用于构建通用检测模型，backbone-->fpn-->head-->anchor-->label_assign-->loss'
 "2021年11月24日20:31:54"
+from numpy.lib.type_check import imag
 import torch
 import torch.nn as nn
 from model.anchor.build_anchor import Anchors
@@ -15,6 +16,7 @@ class General_detector(nn.Module):
         super(General_detector, self).__init__()
         self.channel = 256
         self.batch_size = cfg.TRAIN['BATCH_SIZE']
+        self.num_anchors = cfg.MODEL['ANCHORS_PER_SCLAE']
         self.backbone = build_backbone(cfg.MODEL['backbone'])
         
         self.fpn = build_fpn(cfg.MODEL['fpn'], cfg.MODEL['out_stride'])
@@ -24,7 +26,7 @@ class General_detector(nn.Module):
         self.anchors = Anchors()
         # self.all_anchors = self.anchors(torch.zeros(size=(self.batch_size, 3, cfg.TRAIN['TRAIN_IMG_SIZE'],cfg.TRAIN['TRAIN_IMG_SIZE']),
         #                                 dtype=torch.double).cuda())
-        self.label_assign = build_metrics(cfg.MODEL['metrics'])
+        self.label_assign = build_metrics(cfg, cfg.MODEL['metrics'])
         
         self.loss = build_loss(cfg.MODEL['loss'], cfg)
         
@@ -36,23 +38,25 @@ class General_detector(nn.Module):
         Returns:
             result (list[BoxList] or dict[Tensor]): the output from the model.
         """
+        self.batch_size, _, self.image_w, self.image_h = images.shape
         # time1 = time.time()
-        features8, features16, features32 = self.backbone(images) # {32: feature, 16: feature, 8: feature}
+        large, medium, small = self.backbone(images) # {32: feature, 16: feature, 8: feature}
         # time2 = time.time()
-        features = [features32, features16, features8]
-        features = self.fpn([features32, features16, features8]) # {32: feature, 16: feature, 8: feature}
+        features = [large, medium, small]
+        features = self.fpn(features) # {large: feature, medium: feature, small: feature}
         # time3 = time.time()
-        proposals_reg, proposals_cls = self.head(features) # {32: proposal, 16: proposal, 8: proposal}
+        proposals_reg, proposals_cls = self.head(features) # {large: feature, medium: feature, small: feature}
         # time4 = time.time()
         if targets is None:
             return proposals_reg, proposals_cls
         proposals_reg = self.flatten_anchors(proposals_reg, 5)
         proposals_cls = self.flatten_anchors(proposals_cls, 20)
-        anchors = self.anchors(images)
+        anchors = self.anchors(image = images, only_anchors = True)
+        # anchors = 1
         # time5 = time.time()
-        label_assign, cls_label, reg_label = self.label_assign(anchors, targets, proposals_reg, proposals_cls)
+        cls_pred, reg_pred, cls_target, reg_target = self.label_assign(anchors, targets, proposals_reg, proposals_cls)
         # time6 = time.time()
-        losses, losses_xy, losses_wh, losses_cls = self.loss(label_assign, proposals_cls, cls_label, proposals_reg, reg_label) # reg_loss, cls_loss, conf_loss
+        losses, losses_xy, losses_wh, losses_cls = self.loss(cls_pred, reg_pred, cls_target, reg_target) # reg_loss, cls_loss, conf_loss
         # time7 = time.time()
         # print('backbone:', time2 - time1, 'fpn:', time3 - time2, 'head:', time4 - time3, 'anchor:', time5 - time4,
             #   'label_assign:', time6 - time5, 'loss:', time7 - time6)
@@ -64,13 +68,11 @@ class General_detector(nn.Module):
             anchors (list(torch.tensors)): the results of head output
 
         Returns: 
-            anchors (torch.tensors) : like [B, N, feature_dim]
+            anchors (list(torch.tensors)) : like [[B, N, w, h, feature_dim],...]
         """
 
         for id, item in enumerate(anchors):
-            anchors[id] = item.view(self.batch_size, feature_dim, -1)
-        anchors = torch.cat(anchors, dim=2).transpose(1, 2)
-
+            anchors[id] = item.view(self.batch_size, self.num_anchors, feature_dim, item.shape[2], item.shape[3]).permute(0, 1, 3, 4, 2)
         return anchors
 
     def load_darknet_weights(self, weight_file, cutoff=52):
