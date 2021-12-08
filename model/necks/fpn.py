@@ -62,4 +62,4 @@ class FPN(nn.Module):
         P3_x = self.P3_2(P3_x)
 
 
-        return [P3_x, P4_x, P5_x] # small, medium, large
+        return [P5_x, P4_x, P3_x] # large, medium, small

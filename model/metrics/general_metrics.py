@@ -12,114 +12,128 @@ from utils.tools import *
 
 
 class label_assign(nn.Module):
-    def __init__(self, metrics_type, pos_iou_thr = 0.3, neg_iou_thr = 0.3) -> None:
+    def __init__(self, cfg, metrics_type, pos_iou_thr = 0.3, neg_iou_thr = 0.3) -> None:
         super(label_assign, self).__init__()
         self.metrics = metrics_type
         self.pos_iou_thr = pos_iou_thr
         self.neg_iou_thr = neg_iou_thr
+        self.strides = [32, 16, 8]
+        # self.anchor = self.convert_wh_xyxy(cfg.MODEL['ANCHORS'])
 
 
-
-    def forward(self, anchor, target, regressions, classifications):
+    def forward(self, q_anchors, targets, regressions, classifications):
         # TODO
         """
         Arguments:
-            anchors : [N,4] xyxy
+            anchors : [levels, N,4] xyxy
             target: [B, M, 6] 6 contains xyxy,ind,mixind
-            classifications: [B,N,20] model cls pred, 20指类别
-            regressions: [B, N, 5] model reg pred
+            classifications: [[B,N,w,h,20],...] model cls pred, 20指类别
+            regressions: [[B, N,w,h,5],...] model reg pred
         
             一个anchor 最多一个anchor， 一个GT至少有一个anchor
         """
-        cls_label_assign = []
-        reg_label_assign = []
-        positive_indices_all = []
-        # anchor = anchors[:, :]
-        batch_size = target.shape[0]
-        device = target.device
+        
+        cls_preds_assign = []
+        reg_preds_assign = []
+        cls_targets_assign = []
+        reg_targets_assign = []
+        batch_size, num, _ = targets.shape
+        device = targets.device
+        dtype = targets.dtype
+        levels = len(classifications)
+        # anchors = self.anchor.unsqueeze(0).repeat(batch_size, 1, 1, 1).type(dtype).to(device)
+        anchors = q_anchors.unsqueeze(0).repeat(batch_size, 1, 1, 1).type(dtype).to(device)
         # classifications = torch.rand((1, 150, 20))
-
-        for idx in range(batch_size):
-
-            classification = classifications[idx, :, :]
-            regression = regressions[idx, :, :]
-            bbox_annotation = target[idx]
-            
-            # bbox_annotation = bbox_annotation[bbox_annotation[:, 4] != -1]
-
-            if bbox_annotation.shape[0] == 0:
-                # 表示为空，没有目标
-                continue
+        for level in range(levels):
+            classification = classifications[level]
+            regression = regressions[level]
+            bbox_annotation = self.convert_to_origin(targets)/self.strides[level]
+            target_center = self.get_center(targets)/self.strides[level]
+            target_grids = target_center.long()
+            anchor = anchors[:, level, ...]
+            cls_targets = torch.zeros_like
             # 计算IOU between anchor and target
-            overlaps = iou_xyxy_torch(anchor, bbox_annotation[:, :4])
+            overlaps = iou_xyxy_torch_batch(anchor, bbox_annotation)
             
-            # overlaps = calc_hbb_iou(anchor[:, :], bbox_annotation[:, :4], mode='iou')
             max_overlaps, argmax_overlaps = overlaps.max(dim=1)
 
-            # -------------- compute the classification loss ------------------------------ #
-            cls_targets = torch.zeros_like(classification).to(device=device)
-            # 比下界的置信度小，则为负样本，置0
-            # cls_targets[torch.lt(max_overlaps, self.neg_iou_thr), :] = 0
-            # 最大iou是否比正样本的iou界大
-            positive_indices = torch.ge(max_overlaps, self.pos_iou_thr)
+            batch_idxs = torch.arange(batch_size).reshape(-1, 1)
+            num_idxs = torch.arange(num).reshape(1, -1)
+            assign_anchors = anchor[batch_idxs, argmax_overlaps]
+            cls_preds = classification[batch_idxs, argmax_overlaps, target_grids[..., 0], target_grids[..., 1]]
+            reg_preds = regression[batch_idxs, argmax_overlaps, target_grids[..., 0], target_grids[..., 1]]
 
-            num_positive_anchors = positive_indices.sum()
-            #每一行包括当前行的anchor所匹配上的GT box
-            assigned_annotations = bbox_annotation[argmax_overlaps, :]
-            # cls_targets[positive_indices, :] = 0
-            # 对应类别赋值为1
-            cls_targets[positive_indices, assigned_annotations[positive_indices, 4].long()] = 1
+            reg_targets = self.encode(assign_anchors, targets)
+            cls_targets = torch.zeros_like(cls_preds)
+            cls_targets[batch_idxs, num_idxs, targets[..., 4].long()] = 1
 
-            # ---------------------------- compute regression loss -------------------------------- #
-            reg_targets = torch.zeros_like(regression).to(device=device)
-            # print('num_positive_anchors:',num_positive_anchors)
-            if num_positive_anchors > 0:
-                positive_anchors = anchor[positive_indices, :]
-                gt_boxes = assigned_annotations[positive_indices, :]
-                reg_target = self.encode(positive_anchors, gt_boxes)
-            else:
-                reg_target = torch.tensor(0).double().cuda(device=device)
-            reg_targets[positive_indices, :4] = reg_target
-            cls_label_assign.append(cls_targets)
-            reg_label_assign.append(reg_targets)
-            positive_indices_all.append(positive_indices)
-        # calculate mean cls loss & mean reg loss of per batch size
-        cls_label_assign = torch.stack(cls_label_assign)
-        reg_label_assign = torch.stack(reg_label_assign)
-        positive_indices_all = torch.stack(positive_indices_all)
+            cls_preds_assign.append(cls_preds)
+            reg_preds_assign.append(reg_preds)
+            cls_targets_assign.append(cls_targets)
+            reg_targets_assign.append(reg_targets)
 
-        return positive_indices_all, cls_label_assign, reg_label_assign
+        cls_preds_assign = torch.stack(cls_preds_assign)
+        reg_preds_assign = torch.stack(reg_preds_assign)
+        cls_targets_assign = torch.stack(cls_targets_assign)
+        reg_targets_assign = torch.stack(reg_targets_assign)
 
+        return cls_preds_assign, reg_preds_assign, cls_targets_assign, reg_targets_assign
+
+
+    def convert_to_origin(self, target):
+        """
+        Convert from original map coordinates to origin coordinates.
+        Args:
+            target (torch.Tensors): [B, M, 4]
+        Returns:
+            target (torch.Tensors): [B, M, 4]
+        """
+        widths = target[..., 2] - target[..., 0]
+        heights = target[..., 3] - target[..., 1]
+        output = torch.stack([-widths/2, -heights/2, widths/2, heights/2], dim=2)
+        return output
+    def convert_wh_xyxy(self, anchor):
+        anchor = torch.tensor(anchor)
+        widths = anchor[..., 0]
+        heights = anchor[..., 1]
+        output = torch.stack([-widths/2, -heights/2, widths/2, heights/2], dim=-1)
+        return output
+    def get_center(self, target):
+        widths = target[..., 2] - target[..., 0]
+        heights = target[..., 3] - target[..., 1]
+        output = torch.stack([widths/2, heights/2],dim=2)
+        return output
 
     def encode(self, ex_rois, gt_rois):
         dtype = gt_rois.dtype
         # change [xmin, ymin, xmax, ymax] to [x_center, y_center, width, height]
-        ex_widths = ex_rois[:, 2] - ex_rois[:, 0]
-        ex_heights = ex_rois[:, 3] - ex_rois[:, 1]
+        ex_widths = ex_rois[..., 2] - ex_rois[..., 0]
+        ex_heights = ex_rois[..., 3] - ex_rois[..., 1]
         ex_widths = torch.clamp(ex_widths, min=1)
         ex_heights = torch.clamp(ex_heights, min=1)
-        ex_ctr_x = ex_rois[:, 0] + 0.5 * ex_widths
-        ex_ctr_y = ex_rois[:, 1] + 0.5 * ex_heights
+        ex_ctr_x = ex_rois[..., 0] + 0.5 * ex_widths
+        ex_ctr_y = ex_rois[..., 1] + 0.5 * ex_heights
 
-        gt_widths = gt_rois[:, 2] - gt_rois[:, 0]
-        gt_heights = gt_rois[:, 3] - gt_rois[:, 1]
+        gt_widths = gt_rois[..., 2] - gt_rois[..., 0]
+        gt_heights = gt_rois[..., 3] - gt_rois[..., 1]
         gt_widths = torch.clamp(gt_widths, min=1)
         gt_heights = torch.clamp(gt_heights, min=1)
-        gt_ctr_x = gt_rois[:, 0] + 0.5 * gt_widths
-        gt_ctr_y = gt_rois[:, 1] + 0.5 * gt_heights
+        gt_ctr_x = gt_rois[..., 0] + 0.5 * gt_widths
+        gt_ctr_y = gt_rois[..., 1] + 0.5 * gt_heights
 
         # targets_dx = (gt_ctr_x - ex_ctr_x) / ex_widths
         # targets_dy = (gt_ctr_y - ex_ctr_y) / ex_heights
-        targets_dx = gt_ctr_x - ex_ctr_x.to(torch.int16).to(dtype)
-        targets_dy = gt_ctr_y - ex_ctr_y.to(torch.int16).to(dtype)
+        targets_dx = gt_ctr_x - gt_ctr_x.to(torch.int16).to(dtype)
+        targets_dy = gt_ctr_y - gt_ctr_y.to(torch.int16).to(dtype)
+
 
         targets_dw = torch.log(gt_widths / ex_widths)
         targets_dh = torch.log(gt_heights / ex_heights)
 
-        targets = torch.stack(
-            (targets_dx, targets_dy, targets_dw, targets_dh), dim=1
+        reg_targets = torch.stack(
+            (targets_dx, targets_dy, targets_dw, targets_dh), dim=2
         )
-        return targets
+        return reg_targets
 from torch.utils.data import Dataset, DataLoader
 from utils.datasets import VocDataset
 if __name__ == "__main__":

@@ -21,15 +21,10 @@ class Loss(nn.Module):
         self.w_h_loss = nn.MSELoss()
         self.cls_loss = nn.BCEWithLogitsLoss()
 
-    def forward(self, indices, cls_pred, cls_targets, reg_pred, reg_targets):
+    def forward(self, cls_pred, reg_pred, cls_target, reg_target):
 
-        # reg_pred[:, :, :2] = torch.sigmoid(reg_pred[:, :, :2])
-        # cls_pred = torch.sigmoid(cls_pred)
-        # reg_pred *= indices[:, :, None]
-        # cls_pred *= indices[:, :, None]
-        # test_reg = torch.sigmoid(reg_pred * indices[:, :, None])
-        loss_xy = self.x_y_loss(torch.sigmoid(reg_pred[:, :, :2]), reg_targets[:, :, :2])
-        loss_wh = self.w_h_loss(reg_pred[:, :, 2:4], reg_targets[:, :, 2:4])
-        loss_cls = self.cls_loss(cls_pred, cls_targets)
+        loss_xy = self.x_y_loss(torch.sigmoid(reg_pred[..., :2]), reg_target[..., :2])
+        loss_wh = self.w_h_loss(reg_pred[..., 2:4], reg_target[..., 2:4])
+        loss_cls = self.cls_loss(cls_pred, cls_target)
         loss = loss_xy + loss_wh + loss_cls
         return loss, loss_xy, loss_wh, loss_cls

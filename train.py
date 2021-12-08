@@ -23,16 +23,16 @@ from utils import cosine_lr_scheduler, model_info
 
 
 # import os
-# os.environ["CUDA_VISIBLE_DEVICES"]='3'
+# os.environ["CUDA_VISIBLE_DEVICES"]='1'
 
 
 class Trainer(object):
-    def __init__(self,  weight_path, resume, gpu_id):
+    def __init__(self, args, weight_path, resume, gpu_id):
         #----------- 1. init seed for reproduce -----------------------------------
         init_seeds(0)
-
         #----------- 2. get gpu info -----------------------------------------------
         self.device = gpu.select_device(gpu_id)
+
         self.start_epoch = 0
         self.best_mAP = 0.
         self.epochs = cfg.TRAIN["EPOCHS"]
@@ -41,25 +41,30 @@ class Trainer(object):
 
         #----------- 3. get train dataset ------------------------------------------
         self.train_dataset = data.VocDataset(anno_file_type="train", img_size=cfg.TRAIN["TRAIN_IMG_SIZE"])
+        # train_sampler = torch.utils.data.distributed.DistributedSampler(self.train_dataset)
         self.train_dataloader = DataLoader(self.train_dataset,
-                                           batch_size=cfg.TRAIN["BATCH_SIZE"],
+                                           batch_size=args.batch_size,
                                            num_workers=cfg.TRAIN["NUMBER_WORKERS"],
-                                           shuffle=True)
+                                           shuffle=True
+                                           )
 
         #----------- 4. build model -----------------------------------------------
         self.model = build(cfg).double().to(self.device)
         self.model_info = model_info.get_model_info(self.model, cfg.TEST['TEST_IMG_SIZE'])
         print("Model Summary: {}".format(self.model_info))
+        # self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
+        if self.device and torch.cuda.device_count() > 1:
+            model = torch.nn.DataParallel(self.model)
+        self.model = model.to(self.device)
+
         # self.model.apply(tools.weights_init_normal)
 
         #------------5. init optimizer, criterion, scheduler, weights-----------------------
         self.optimizer = optim.SGD(self.model.parameters(), lr=cfg.TRAIN["LR_INIT"],
                                    momentum=cfg.TRAIN["MOMENTUM"], weight_decay=cfg.TRAIN["WEIGHT_DECAY"])
 
-        # self.criterion = YoloV3Loss(anchors=cfg.MODEL["ANCHORS"], strides=cfg.MODEL["STRIDES"],
-        #                             iou_threshold_loss=cfg.TRAIN["IOU_THRESHOLD_LOSS"])
 
-        self.__load_model_weights(weight_path, resume)
+        # self.__load_model_weights(weight_path, resume)
 
         self.scheduler = cosine_lr_scheduler.CosineDecayLR(self.optimizer,
                                                           T_max=self.epochs*len(self.train_dataloader),
@@ -101,6 +106,8 @@ class Trainer(object):
             torch.save(chkpt, os.path.join(os.path.split(self.weight_path)[0], 'backup_epoch%g.pt'%epoch))
         del chkpt
 
+    def get_loss(self, loss):
+        return loss.mean()
 
     def train(self):
         # print(self.model)
@@ -112,35 +119,23 @@ class Trainer(object):
             mloss = torch.zeros(4)
             iter_time = 0
             for i, (imgs, bboxes)  in enumerate(self.train_dataloader):
-            # for i, (imgs, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes)  in enumerate(self.train_dataloader):
-                # if i != 0 and i % 11 == 0:
-                #     print('Done')
-                #     break
+
                 start_time = time.time()
+
                 self.scheduler.step(len(self.train_dataloader)*epoch + i)
                 imgs = imgs.to(self.device)
                 bboxes = bboxes.to(self.device)
-                # label_sbbox = label_sbbox.to(self.device)
-                # label_mbbox = label_mbbox.to(self.device)
-                # label_lbbox = label_lbbox.to(self.device)
-                # sbboxes = sbboxes.to(self.device)
-                # mbboxes = mbboxes.to(self.device)
-                # lbboxes = lbboxes.to(self.device)
 
-                # p, p_d = self.model(imgs, bboxes)
                 loss, loss_reg, loss_conf, loss_cls = self.model(imgs, bboxes)
-                # 这里返回的应当是不同层级Head出来的结果
-                # metrics(p), 进行正负样本匹配
-                # 随后计算loss
-                # loss, loss_reg, loss_conf, loss_cls = self.criterion(p, p_d, label_sbbox, label_mbbox,
-                #                                   label_lbbox, sbboxes, mbboxes, lbboxes)
+                loss, loss_reg, loss_conf, loss_cls = self.get_loss(loss), self.get_loss(loss_reg), self.get_loss(loss_conf), self.get_loss(loss_cls)
 
                 self.optimizer.zero_grad()
                 loss.backward()
-                self.optimizer.step()
+                
 
+                self.optimizer.step()
                 # Update running mean of tracked metrics
-                loss_items = torch.tensor([loss_reg, loss_conf, loss_cls, loss])
+                loss_items = torch.tensor([loss_reg.item(), loss_conf.item(), loss_cls.item(), loss.item()])
                 mloss = (mloss * i + loss_items) / (i + 1)
                 print_fre = 10
                 # Print batch results
@@ -179,7 +174,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--weight_path', type=str, default='weight/darknet53_448.weights', help='weight file path')
     parser.add_argument('--resume', action='store_true',default=False,  help='resume training flag')
+    parser.add_argument('--batch_size', type=int, default=10,  help='mini batch number')
     parser.add_argument('--gpu_id', type=int, default=0, help='gpu id')
+    parser.add_argument('--device', default='0,1', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument("--local_rank", type=int, default=0)
     opt = parser.parse_args()
 
-    Trainer(weight_path=opt.weight_path, resume=opt.resume, gpu_id=opt.gpu_id).train()
+    Trainer(args = opt, weight_path=opt.weight_path, resume=opt.resume, gpu_id=opt.device).train()

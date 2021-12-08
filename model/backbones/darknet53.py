@@ -121,4 +121,4 @@ class Darknet53(nn.Module):
         xxx = self.__rb_5_4_2(xxx)
         xxx = self.__rb_5_4_3(xxx)  # large, 32x
 
-        return x, xx, xxx
+        return xxx, xx, x  # [large, medium, small]
