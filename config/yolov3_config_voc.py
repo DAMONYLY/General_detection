@@ -25,7 +25,6 @@ MODEL = {
 TRAIN = {
          "TRAIN_IMG_SIZE":448,
          "AUGMENT":True,
-         "BATCH_SIZE":10,
          "MULTI_SCALE_TRAIN":True,
          "IOU_THRESHOLD_LOSS":0.5,
          "EPOCHS":50,

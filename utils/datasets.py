@@ -1,6 +1,7 @@
 # coding=utf-8
 import os
 import sys
+from time import daylight
 sys.path.append("..")
 sys.path.append("../utils")
 import torch
@@ -13,7 +14,8 @@ import random
 import utils.data_augment as dataAug
 import utils.tools as tools
 
-
+DATA_PATH = "/raid/yaoliangyong/General_detection/dataset"
+PROJECT_PATH = "/raid/yaoliangyong/General_detection"
 class VocDataset(Dataset):
     def __init__(self, anno_file_type, img_size=416):
         self.img_size = img_size  # For Multi-training
@@ -22,7 +24,8 @@ class VocDataset(Dataset):
         self.class_to_id = dict(zip(self.classes, range(self.num_classes)))
         # get txt file, one raw means one pic
         self.__annotations = self.__load_annotations(anno_file_type)
-
+        self.dasd = {}
+        #cupy
     def __len__(self):
         return  len(self.__annotations)
 
@@ -64,7 +67,7 @@ class VocDataset(Dataset):
     def __load_annotations(self, anno_type):
 
         assert anno_type in ['train', 'test'], "You must choice one of the 'train' or 'test' for anno_type parameter"
-        anno_path = os.path.join(cfg.PROJECT_PATH, 'data', anno_type+"_annotation.txt")
+        anno_path = os.path.join(PROJECT_PATH, 'data', anno_type+"_annotation.txt")
         with open(anno_path, 'r') as f:
             annotations = list(filter(lambda x:len(x)>0, f.readlines()))
         assert len(annotations)>0, "No images found in {}".format(anno_path)
