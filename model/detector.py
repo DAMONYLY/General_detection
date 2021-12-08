@@ -38,15 +38,32 @@ class General_detector(nn.Module):
         Returns:
             result (list[BoxList] or dict[Tensor]): the output from the model.
         """
+        # time1 = torch.cuda.Event(enable_timing=True)
+        # time2 = torch.cuda.Event(enable_timing=True)
+        # time3 = torch.cuda.Event(enable_timing=True)
+        # time4 = torch.cuda.Event(enable_timing=True)
+        # time5 = torch.cuda.Event(enable_timing=True)
+        # time6 = torch.cuda.Event(enable_timing=True)
+        # time7 = torch.cuda.Event(enable_timing=True)
         self.batch_size, _, self.image_w, self.image_h = images.shape
         # time1 = time.time()
+        # time1.record()
         large, medium, small = self.backbone(images) # {32: feature, 16: feature, 8: feature}
         # time2 = time.time()
+        # time2.record()
+        # torch.cuda.synchronize()
+        # print('backbone', time1.elapsed_time(time2))
         features = [large, medium, small]
         features = self.fpn(features) # {large: feature, medium: feature, small: feature}
         # time3 = time.time()
+        # time3.record()
+        # torch.cuda.synchronize()
+        # print('fpn', time2.elapsed_time(time3))
         proposals_reg, proposals_cls = self.head(features) # {large: feature, medium: feature, small: feature}
         # time4 = time.time()
+        # time4.record()
+        # torch.cuda.synchronize()
+        # print('head', time3.elapsed_time(time4))
         if targets is None:
             return proposals_reg, proposals_cls
         proposals_reg = self.flatten_anchors(proposals_reg, 5)
@@ -54,10 +71,19 @@ class General_detector(nn.Module):
         anchors = self.anchors(image = images, only_anchors = True)
         # anchors = 1
         # time5 = time.time()
+        # time5.record()
+        # torch.cuda.synchronize()
+        # print('anchors', time4.elapsed_time(time5))
         cls_pred, reg_pred, cls_target, reg_target = self.label_assign(anchors, targets, proposals_reg, proposals_cls)
         # time6 = time.time()
+        # time6.record()
+        # torch.cuda.synchronize()
+        # print('label assign', time5.elapsed_time(time6))
         losses, losses_xy, losses_wh, losses_cls = self.loss(cls_pred, reg_pred, cls_target, reg_target) # reg_loss, cls_loss, conf_loss
         # time7 = time.time()
+        # time7.record()
+        # torch.cuda.synchronize()
+        # print('loss', time6.elapsed_time(time7))
         # print('backbone:', time2 - time1, 'fpn:', time3 - time2, 'head:', time4 - time3, 'anchor:', time5 - time4,
             #   'label_assign:', time6 - time5, 'loss:', time7 - time6)
         return losses, losses_xy, losses_wh, losses_cls

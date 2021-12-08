@@ -1,6 +1,5 @@
 # coding=utf-8
 # project
-from config.yolov3_config_voc import MODEL
 
 
 DATA_PATH = "/raid/yaoliangyong/General_detection/dataset"
@@ -37,7 +36,7 @@ TRAIN = {
          "MULTI_SCALE_TRAIN":False,
          "IOU_THRESHOLD_LOSS":0.5,
          "EPOCHS":50,
-         "NUMBER_WORKERS":4,
+         "NUMBER_WORKERS":2,
          "MOMENTUM":0.9,
          "WEIGHT_DECAY":0.0005,
          "LR_INIT":1e-3,

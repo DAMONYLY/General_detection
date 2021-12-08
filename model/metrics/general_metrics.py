@@ -18,7 +18,7 @@ class label_assign(nn.Module):
         self.pos_iou_thr = pos_iou_thr
         self.neg_iou_thr = neg_iou_thr
         self.strides = [32, 16, 8]
-        self.anchor = self.convert_wh_xyxy(cfg.MODEL['ANCHORS'])
+        # self.anchor = self.convert_wh_xyxy(cfg.MODEL['ANCHORS'])
 
 
     def forward(self, q_anchors, targets, regressions, classifications):
@@ -41,8 +41,8 @@ class label_assign(nn.Module):
         device = targets.device
         dtype = targets.dtype
         levels = len(classifications)
-        anchors = self.anchor.unsqueeze(0).repeat(batch_size, 1, 1, 1).type(dtype).to(device)
-        
+        # anchors = self.anchor.unsqueeze(0).repeat(batch_size, 1, 1, 1).type(dtype).to(device)
+        anchors = q_anchors.unsqueeze(0).repeat(batch_size, 1, 1, 1).type(dtype).to(device)
         # classifications = torch.rand((1, 150, 20))
         for level in range(levels):
             classification = classifications[level]

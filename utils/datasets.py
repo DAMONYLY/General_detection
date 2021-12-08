@@ -1,6 +1,7 @@
 # coding=utf-8
 import os
 import sys
+from time import daylight
 sys.path.append("..")
 sys.path.append("../utils")
 import torch
@@ -22,7 +23,8 @@ class VocDataset(Dataset):
         self.class_to_id = dict(zip(self.classes, range(self.num_classes)))
         # get txt file, one raw means one pic
         self.__annotations = self.__load_annotations(anno_file_type)
-
+        self.dasd = {}
+        #cupy
     def __len__(self):
         return  len(self.__annotations)
 
