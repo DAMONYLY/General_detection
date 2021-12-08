@@ -40,88 +40,53 @@ Subsequently, i will continue to update the code to make it more concise , and a
 * In the test, the nms threshold is 0.5(except the last one) and the conf_score is 0.01.`others` nms threshold is 0.45(0.45 will increase the mAP)
 * Now only support the single gpu to train and test.
 
-<!-- 
----
-## Environment
-
-* Nvida GeForce TITAN RTX
-* CUDA10.0
-* CUDNN7.0
-* ubuntu 16.04
-* python 3.7
-```bash
-# install packages
-pip3 install -r requirements.txt --user
+## Install
+### 1. Clone this repo
+```
+git clone https://github.com/DAMONYLY/General_detection.git
+```
+### 2. Download VOC data
+Convert data format : Convert the pascal voc *.xml format to custom format (Image_path0   xmin0,ymin0,xmax0,ymax0,class0   xmin1,ymin1...)
+```
+|-- data
+    |-- VOCdevkit
+        |-- VOC2007
+            |-- Annotations
+            |-- ImageSets
+            |-- JPEGImages
+            |-- SegmentationClass
+            |-- SegmentationObject
+        |-- VOC2007_test
+            |-- Annotations
+            |-- ImageSets
+            |-- JPEGImages
+            |-- SegmentationClass
+            |-- SegmentationObject
+        |-- VOC2012
+            |-- Annotations
+            |-- ImageSets
+            |-- JPEGImages
+            |-- SegmentationClass
+            |-- SegmentationObject                
 ```
 
----
-## Brief
-
-* [x] Data Augment (RandomHorizontalFlip, RandomCrop, RandomAffine, Resize)
-* [x] Step lr Schedule 
-* [x] Multi-scale Training (320 to 640)
-* [x] focal loss
-* [x] GIOU
-* [x] Label smooth
-* [x] Mixup
-* [x] cosine lr
-* [x] Multi-scale Test and Flip
-
-
-
----
-## Prepared work
-
-### 1、Git clone YOLOV3 repository
-```Bash
-git clone https://github.com/Peterisfar/YOLOV3.git
+### 3. Run voc.py to convert data format
+Change the DATA_PATH in voc.py to your own voc data_path. like ` DATA_PATH = "{own_path}/General_detection/data/" `
 ```
-update the `"PROJECT_PATH"` in the params.py.
-### 2、Download dataset
-* Download Pascal VOC dataset : [VOC 2012_trainval](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar) 、[VOC 2007_trainval](http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar)、[VOC2007_test](http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar). put them in the dir, and update the `"DATA_PATH"` in the params.py.
-* Convert data format : Convert the pascal voc *.xml format to custom format (Image_path0 &nbsp; xmin0,ymin0,xmax0,ymax0,class0 &nbsp; xmin1,ymin1...)
-
-```bash
-cd YOLOV3 && mkdir data
-cd utils
-python3 voc.py # get train_annotation.txt and test_annotation.txt in data/
+python voc.py
 ```
-
-### 3、Download weight file
+### 4. Download pretrain weight file
 * Darknet pre-trained weight :  [darknet53-448.weights](https://pjreddie.com/media/files/darknet53_448.weights) 
 * This repository test weight : [best.pt](https://pan.baidu.com/s/1MdE2zfIND9NYd9mWytMX8g)
 
-Make dir `weight/` in the YOLOV3 and put the weight file in.
+Make dir `weight/` and put the weight file in.
 
----
 ## Train
-
-Run the following command to start training and see the details in the `config/yolov3_config_voc.py`
-
-```Bash
-WEIGHT_PATH=weight/darknet53_448.weights
-
-CUDA_VISIBLE_DEVICES=0 nohup python3 -u train.py --weight_path $WEIGHT_PATH --gpu_id 0 > nohup.log 2>&1 &
-
 ```
-
-`Notes:`
-
-* Training steps could run the `"cat nohup.log"` to print the log.
-* It supports to resume training adding `--resume`, it will load `last.pt` automaticly.
-
----
-## Test
-You should define your weight file path `WEIGHT_FILE` and test data's path `DATA_TEST`
-```Bash
-WEIGHT_PATH=weight/best.pt
-DATA_TEST=./data/test # your own images
-
-CUDA_VISIBLE_DEVICES=0 python3 test.py --weight_path $WEIGHT_PATH --gpu_id 0 --visiual $DATA_TEST --eval
-
+# Change the parameters in cfg
+# Run train.py
+python train.py
 ```
-The images can be seen in the `data/` -->
-
 ---
 ## TODO
 
