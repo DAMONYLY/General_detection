@@ -12,7 +12,8 @@ from utils.visualize import *
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"]='0'
 
-
+DATA_PATH = "/raid/yaoliangyong/General_detection/dataset"
+PROJECT_PATH = "/raid/yaoliangyong/General_detection"
 class Tester(object):
     def __init__(self,
                  weight_path=None,
@@ -67,7 +68,7 @@ class Tester(object):
                     scores = bboxes_prd[..., 4]
 
                     visualize_boxes(image=img, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.__classes)
-                    path = os.path.join(cfg.PROJECT_PATH, "data/{}".format(v))
+                    path = os.path.join(PROJECT_PATH, "data/{}".format(v))
 
                     cv2.imwrite(path, img)
                     print("saved images : {}".format(path))

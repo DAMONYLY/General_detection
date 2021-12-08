@@ -12,13 +12,13 @@ from utils.tools import *
 from tqdm import tqdm
 from utils.visualize import *
 import time
-
-
+DATA_PATH = "/raid/yaoliangyong/General_detection/dataset"
+PROJECT_PATH = "/raid/yaoliangyong/General_detection"
 class Evaluator(object):
     def __init__(self, model, visiual=False):
         self.classes = cfg.DATA["CLASSES"]
-        self.pred_result_path = os.path.join(cfg.PROJECT_PATH, 'data', 'results')
-        self.val_data_path = os.path.join(cfg.DATA_PATH, 'VOCdevkit', 'VOC2007_test')
+        self.pred_result_path = os.path.join(PROJECT_PATH, 'data', 'results')
+        self.val_data_path = os.path.join(DATA_PATH, 'VOCdevkit', 'VOC2007_test')
         self.conf_thresh = cfg.TEST["CONF_THRESH"]
         self.nms_thresh = cfg.TEST["NMS_THRESH"]
         self.val_shape =  cfg.TEST["TEST_IMG_SIZE"]
@@ -52,7 +52,7 @@ class Evaluator(object):
                 scores = bboxes_prd[..., 4]
 
                 visualize_boxes(image=img, boxes=boxes, labels=class_inds, probs=scores, class_labels=self.classes)
-                path = os.path.join(cfg.PROJECT_PATH, "data/results/{}.jpg".format(self.__visual_imgs))
+                path = os.path.join(PROJECT_PATH, "data/results/{}.jpg".format(self.__visual_imgs))
                 cv2.imwrite(path, img)
 
                 self.__visual_imgs += 1

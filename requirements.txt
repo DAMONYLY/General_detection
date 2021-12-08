@@ -5,4 +5,5 @@ torchvision==0.2.1
 tqdm==4.56.0
 tensorboardX==2.1
 pickleshare==0.7.5
+thop
 

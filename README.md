@@ -46,7 +46,8 @@ Subsequently, i will continue to update the code to make it more concise , and a
 git clone https://github.com/DAMONYLY/General_detection.git
 ```
 ### 2. Download VOC data
-Convert data format : Convert the pascal voc *.xml format to custom format (Image_path0   xmin0,ymin0,xmax0,ymax0,class0   xmin1,ymin1...)
+
+Save it in the following form
 ```
 |-- data
     |-- VOCdevkit
@@ -71,6 +72,8 @@ Convert data format : Convert the pascal voc *.xml format to custom format (Imag
 ```
 
 ### 3. Run voc.py to convert data format
+Convert data format : Convert the pascal voc *.xml format to custom format (Image_path0   xmin0,ymin0,xmax0,ymax0,class0   xmin1,ymin1...)
+
 Change the DATA_PATH in voc.py to your own voc data_path. like ` DATA_PATH = "{own_path}/General_detection/data/" `
 ```
 python voc.py

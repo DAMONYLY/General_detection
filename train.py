@@ -176,7 +176,7 @@ if __name__ == "__main__":
     parser.add_argument('--resume', action='store_true',default=False,  help='resume training flag')
     parser.add_argument('--batch_size', type=int, default=10,  help='mini batch number')
     parser.add_argument('--gpu_id', type=int, default=0, help='gpu id')
-    parser.add_argument('--device', default='0,1', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='0,1,2,3', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
     opt = parser.parse_args()
 

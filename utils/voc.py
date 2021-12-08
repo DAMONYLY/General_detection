@@ -5,6 +5,7 @@ import config.yolov3_config_voc as cfg
 import os
 from tqdm import tqdm
 
+DATA_PATH = "/raid/yaoliangyong/General_detection/data/"
 
 
 def parse_voc_annotation(data_path, file_type, anno_path, use_difficult_bbox=False):
@@ -48,17 +49,17 @@ def parse_voc_annotation(data_path, file_type, anno_path, use_difficult_bbox=Fal
 
 if __name__ =="__main__":
     # train_set :  VOC2007_trainval 和 VOC2012_trainval
-    train_data_path_2007 = os.path.join(cfg.DATA_PATH, 'VOCdevkit', 'VOC2007')
-    train_data_path_2012 = os.path.join(cfg.DATA_PATH, 'VOCdevkit', 'VOC2012')
-    train_annotation_path = os.path.join('../data', 'train_annotation.txt')
+    train_data_path_2007 = os.path.join(DATA_PATH, 'VOCdevkit', 'VOC2007')
+    train_data_path_2012 = os.path.join(DATA_PATH, 'VOCdevkit', 'VOC2012')
+    train_annotation_path = os.path.join(DATA_PATH, 'train_annotation.txt')
     if os.path.exists(train_annotation_path):
         os.remove(train_annotation_path)
 
     # val_set   : VOC2007_test
-    test_data_path_2007 = os.path.join(cfg.DATA_PATH, 'VOCdevkit', 'VOC2007_test')
-    test_annotation_path = os.path.join('../data', 'test_annotation.txt')
-    if not os.path.exists('../data'):
-        os.mkdir('../data')
+    test_data_path_2007 = os.path.join(DATA_PATH, 'VOCdevkit', 'VOC2007_test')
+    test_annotation_path = os.path.join(DATA_PATH, 'test_annotation.txt')
+    if not os.path.exists(DATA_PATH):
+        os.mkdir(DATA_PATH)
     if os.path.exists(test_annotation_path):
         os.remove(test_annotation_path)
 
