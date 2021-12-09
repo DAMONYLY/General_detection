@@ -2,10 +2,6 @@
 # project
 
 
-DATA_PATH = "/raid/yaoliangyong/General_detection/dataset"
-PROJECT_PATH = "/raid/yaoliangyong/General_detection"
-
-
 DATA = {"CLASSES":['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
            'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse',
            'motorbike', 'person', 'pottedplant', 'sheep', 'sofa',
@@ -15,7 +11,8 @@ DATA = {"CLASSES":['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
 # model
 MODEL = {
     "name": 'General', # [YOLO, General]
-    "backbone": 'Darknet53', # [Darknet53, Resnet]
+    "backbone": 'Resnet', # [Darknet53, Resnet]
+    'depth': 34, # depth of ResNet model [18, 34, 50, 101, 152]
     "fpn": 'fpn',
     "out_stride": [8, 16, 32], # TODO: 用于输出多少x的特征图用来检测
     'head': 'normal',

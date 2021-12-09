@@ -17,9 +17,9 @@ class General_detector(nn.Module):
         self.channel = 256
         self.batch_size = cfg.TRAIN['BATCH_SIZE']
         self.num_anchors = cfg.MODEL['ANCHORS_PER_SCLAE']
-        self.backbone = build_backbone(cfg.MODEL['backbone'])
+        self.backbone = build_backbone(cfg)
         
-        self.fpn = build_fpn(cfg.MODEL['fpn'], cfg.MODEL['out_stride'])
+        self.fpn = build_fpn(cfg.MODEL['fpn'], cfg.MODEL['out_stride'], fpn_channels = self.backbone.fpn_size)
 
         self.head = build_head(cfg.MODEL['head'], self.channel, cfg.MODEL['ANCHORS_PER_SCLAE'])
 

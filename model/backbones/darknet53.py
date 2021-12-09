@@ -47,7 +47,7 @@ class Darknet53(nn.Module):
         self.__rb_5_4_1 = Residual_block(filters_in=1024, filters_out=1024, filters_medium=512)
         self.__rb_5_4_2 = Residual_block(filters_in=1024, filters_out=1024, filters_medium=512)
         self.__rb_5_4_3 = Residual_block(filters_in=1024, filters_out=1024, filters_medium=512)
-
+        self.fpn_size = [1024, 512, 256]
 
     def forward(self, x):
         # x = self.__conv(x)
@@ -120,5 +120,4 @@ class Darknet53(nn.Module):
         xxx = self.__rb_5_4_1(xxx)
         xxx = self.__rb_5_4_2(xxx)
         xxx = self.__rb_5_4_3(xxx)  # large, 32x
-
         return xxx, xx, x  # [large, medium, small]

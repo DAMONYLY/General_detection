@@ -12,12 +12,12 @@ activate_name = {
 
 
 class Convolutional(nn.Module):
-    def __init__(self, filters_in, filters_out, kernel_size, stride, pad, norm=None, activate=None):
+    def __init__(self, filters_in, filters_out, kernel_size, stride=1, pad=0, norm=None, activate=None):
         super(Convolutional, self).__init__()
 
         self.norm = norm
         self.activate = activate
-
+        self.out_channels = filters_out
         self.__conv = nn.Conv2d(in_channels=filters_in, out_channels=filters_out, kernel_size=kernel_size,
                                 stride=stride, padding=pad, bias=not norm)
         if norm:
