@@ -40,29 +40,19 @@ class VocDataset(Dataset):
 
 
         img, bboxes = dataAug.Mixup()(img_org, bboxes_org, img_mix, bboxes_mix)
-        output = np.zeros(shape=(100, 6))
-        num = 0
-        for bbox in bboxes:
-            output[num] = bbox
-            num += 1
-        # output[num] = num
-        if True:
-            return img, output
-        del img_org, bboxes_org, img_mix, bboxes_mix
-
-
-        label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = self.__creat_label(bboxes)
-
-        img = torch.from_numpy(img).float()
-        label_sbbox = torch.from_numpy(label_sbbox).float()
-        label_mbbox = torch.from_numpy(label_mbbox).float()
-        label_lbbox = torch.from_numpy(label_lbbox).float()
-        sbboxes = torch.from_numpy(sbboxes).float()
-        mbboxes = torch.from_numpy(mbboxes).float()
-        lbboxes = torch.from_numpy(lbboxes).float()
+        nl = len(bboxes)
+        labels_out = torch.zeros((nl, 7), dtype=torch.double)
         
-        return img, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes
-
+        if nl:
+            labels_out[:, :-1] = torch.from_numpy(bboxes)
+        return torch.from_numpy(img), labels_out
+        
+    @staticmethod
+    def collate_fn(batch):
+        img, label = zip(*batch)  # transposed
+        for i, l in enumerate(label):
+            l[:, -1] = i  # add target image index for build_targets()
+        return torch.stack(img, 0), torch.cat(label, 0)
 
     def __load_annotations(self, anno_type):
 

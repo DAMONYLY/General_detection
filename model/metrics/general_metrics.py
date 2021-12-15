@@ -18,7 +18,7 @@ class label_assign(nn.Module):
         self.pos_iou_thr = pos_iou_thr
         self.neg_iou_thr = neg_iou_thr
         self.strides = [32, 16, 8]
-        # self.anchor = self.convert_wh_xyxy(cfg.MODEL['ANCHORS'])
+        self.anchor = self.convert_wh_xyxy(cfg.MODEL['ANCHORS'])
 
 
     def forward(self, q_anchors, targets, regressions, classifications):
@@ -26,56 +26,63 @@ class label_assign(nn.Module):
         """
         Arguments:
             anchors : [levels, N,4] xyxy
-            target: [B, M, 6] 6 contains xyxy,ind,mixind
+            target: [M, 7] 6 contains [x,y,x,y,ind,mixind,imgh_batch_id]
             classifications: [[B,N,w,h,20],...] model cls pred, 20指类别
             regressions: [[B, N,w,h,5],...] model reg pred
-        
-            一个anchor 最多一个anchor， 一个GT至少有一个anchor
+        Returns:
+            cls_preds_assign (torch.tensor, [fpn_level*M, 20]): 模型预测的类别
+            reg_preds_assign (torch.tensor, [fpn_level*M, 5]): 模型预测的坐标
+            cls_targets_assign (torch.tensor, [fpn_level*M, 20]): 类别对应的标签
+            reg_targets_assign (torch.tensor, [fpn_level*M, 5]): 坐标对应的标签
         """
         
         cls_preds_assign = []
         reg_preds_assign = []
         cls_targets_assign = []
         reg_targets_assign = []
-        batch_size, num, _ = targets.shape
+        num, _ = targets.shape
+        batch_size = int(targets[-1,-1] + 1)
         device = targets.device
         dtype = targets.dtype
+        num_idxs = torch.arange(num)
+        targets_batch_ids = targets[..., -1].long()
         levels = len(classifications)
-        # anchors = self.anchor.unsqueeze(0).repeat(batch_size, 1, 1, 1).type(dtype).to(device)
-        anchors = q_anchors.unsqueeze(0).repeat(batch_size, 1, 1, 1).type(dtype).to(device)
+        # anchors = q_anchors.unsqueeze(0).repeat(batch_size, 1, 1, 1).type(dtype).to(device)
+        anchors = self.anchor.type(dtype).to(device)
         # classifications = torch.rand((1, 150, 20))
         for level in range(levels):
             classification = classifications[level]
             regression = regressions[level]
-            bbox_annotation = self.convert_to_origin(targets)/self.strides[level]
-            target_center = self.get_center(targets)/self.strides[level]
+            bbox_annotation = self.convert_to_origin(targets)/self.strides[level] # [M, 4]
+            target_center = self.get_center(targets)/self.strides[level] # [M, 2]
             target_grids = target_center.long()
-            anchor = anchors[:, level, ...]
-            cls_targets = torch.zeros_like
+            anchor = anchors[level, ...]
             # 计算IOU between anchor and target
-            overlaps = iou_xyxy_torch_batch(anchor, bbox_annotation)
-            
-            max_overlaps, argmax_overlaps = overlaps.max(dim=1)
+            # overlaps = iou_xyxy_torch_batch(anchor, bbox_annotation)
+            overlaps = iou_xyxy_torch(anchor, bbox_annotation) # [N, M]
+            max_overlaps, argmax_overlaps = overlaps.max(dim=0)
 
-            batch_idxs = torch.arange(batch_size).reshape(-1, 1)
-            num_idxs = torch.arange(num).reshape(1, -1)
-            assign_anchors = anchor[batch_idxs, argmax_overlaps]
-            cls_preds = classification[batch_idxs, argmax_overlaps, target_grids[..., 0], target_grids[..., 1]]
-            reg_preds = regression[batch_idxs, argmax_overlaps, target_grids[..., 0], target_grids[..., 1]]
 
+            assign_anchors = anchor[argmax_overlaps] # [M, 4] 
+            # Get the model classification and regression of the grid corresponding to the target center
+            # cls_preds: [M, classification_out]. reg_preds: [M, regression_out]
+            cls_preds = classification[targets_batch_ids, argmax_overlaps, target_grids[..., 0], target_grids[..., 1]]
+            reg_preds = regression[targets_batch_ids, argmax_overlaps, target_grids[..., 0], target_grids[..., 1]]
+            # Obtain the  regression targets. [M, regression_out]
             reg_targets = self.encode(assign_anchors, targets)
+            # Obtain the  classification targets. [M, classification_out]
             cls_targets = torch.zeros_like(cls_preds)
-            cls_targets[batch_idxs, num_idxs, targets[..., 4].long()] = 1
 
+            cls_targets[num_idxs, targets[..., 4].long()] = 1
             cls_preds_assign.append(cls_preds)
             reg_preds_assign.append(reg_preds)
             cls_targets_assign.append(cls_targets)
             reg_targets_assign.append(reg_targets)
 
-        cls_preds_assign = torch.stack(cls_preds_assign)
-        reg_preds_assign = torch.stack(reg_preds_assign)
-        cls_targets_assign = torch.stack(cls_targets_assign)
-        reg_targets_assign = torch.stack(reg_targets_assign)
+        cls_preds_assign = torch.cat(cls_preds_assign)
+        reg_preds_assign = torch.cat(reg_preds_assign)
+        cls_targets_assign = torch.cat(cls_targets_assign)
+        reg_targets_assign = torch.cat(reg_targets_assign)
 
         return cls_preds_assign, reg_preds_assign, cls_targets_assign, reg_targets_assign
 
@@ -84,13 +91,13 @@ class label_assign(nn.Module):
         """
         Convert from original map coordinates to origin coordinates.
         Args:
-            target (torch.Tensors): [B, M, 4]
+            target (torch.Tensors): [M, 7]
         Returns:
-            target (torch.Tensors): [B, M, 4]
+            target (torch.Tensors): [M, 7]
         """
         widths = target[..., 2] - target[..., 0]
         heights = target[..., 3] - target[..., 1]
-        output = torch.stack([-widths/2, -heights/2, widths/2, heights/2], dim=2)
+        output = torch.stack([-widths/2, -heights/2, widths/2, heights/2], dim=-1)
         return output
     def convert_wh_xyxy(self, anchor):
         anchor = torch.tensor(anchor)
@@ -98,10 +105,11 @@ class label_assign(nn.Module):
         heights = anchor[..., 1]
         output = torch.stack([-widths/2, -heights/2, widths/2, heights/2], dim=-1)
         return output
+
     def get_center(self, target):
         widths = target[..., 2] - target[..., 0]
         heights = target[..., 3] - target[..., 1]
-        output = torch.stack([widths/2, heights/2],dim=2)
+        output = torch.stack([widths/2, heights/2], dim=-1)
         return output
 
     def encode(self, ex_rois, gt_rois):
@@ -131,7 +139,7 @@ class label_assign(nn.Module):
         targets_dh = torch.log(gt_heights / ex_heights)
 
         reg_targets = torch.stack(
-            (targets_dx, targets_dy, targets_dw, targets_dh), dim=2
+            (targets_dx, targets_dy, targets_dw, targets_dh), dim=-1
         )
         return reg_targets
 from torch.utils.data import Dataset, DataLoader

@@ -1,6 +1,7 @@
 import logging
 
 from torch._C import device
+from model.loss_calculater import Loss_calculater
 from model.build_model import build
 import utils.gpu as gpu
 from model.yolov3 import Yolov3
@@ -9,7 +10,7 @@ import torch
 import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.data import DataLoader
-import utils.datasets as data
+from utils.datasets import VocDataset
 import time
 import datetime
 import random
@@ -40,12 +41,13 @@ class Trainer(object):
         self.multi_scale_train = cfg.TRAIN["MULTI_SCALE_TRAIN"]
 
         #----------- 3. get train dataset ------------------------------------------
-        self.train_dataset = data.VocDataset(anno_file_type="train", img_size=cfg.TRAIN["TRAIN_IMG_SIZE"])
+        self.train_dataset = VocDataset(anno_file_type="train", img_size=cfg.TRAIN["TRAIN_IMG_SIZE"])
         # train_sampler = torch.utils.data.distributed.DistributedSampler(self.train_dataset)
         self.train_dataloader = DataLoader(self.train_dataset,
                                            batch_size=args.batch_size,
                                            num_workers=cfg.TRAIN["NUMBER_WORKERS"],
-                                           shuffle=True
+                                           shuffle=True,
+                                           collate_fn=VocDataset.collate_fn
                                            )
 
         #----------- 4. build model -----------------------------------------------
@@ -55,11 +57,12 @@ class Trainer(object):
         # self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
         if self.device and torch.cuda.device_count() > 1:
             model = torch.nn.DataParallel(self.model)
-        self.model = model.to(self.device)
-
+            self.model = model.to(self.device)
+        #------------5. build loss calculater--------------------------------
+        self.loss_calculater = Loss_calculater(cfg)
         # self.model.apply(tools.weights_init_normal)
 
-        #------------5. init optimizer, criterion, scheduler, weights-----------------------
+        #------------6. init optimizer, criterion, scheduler, weights-----------------------
         self.optimizer = optim.SGD(self.model.parameters(), lr=cfg.TRAIN["LR_INIT"],
                                    momentum=cfg.TRAIN["MOMENTUM"], weight_decay=cfg.TRAIN["WEIGHT_DECAY"])
 
@@ -126,8 +129,11 @@ class Trainer(object):
                 imgs = imgs.to(self.device)
                 bboxes = bboxes.to(self.device)
 
-                loss, loss_reg, loss_conf, loss_cls = self.model(imgs, bboxes)
-                loss, loss_reg, loss_conf, loss_cls = self.get_loss(loss), self.get_loss(loss_reg), self.get_loss(loss_conf), self.get_loss(loss_cls)
+                features = self.model(imgs)
+
+                loss, loss_reg, loss_conf, loss_cls = self.loss_calculater(features, bboxes)
+                # for multi-GPU compute loss, calculate average loss
+                # loss, loss_reg, loss_conf, loss_cls = self.get_loss(loss), self.get_loss(loss_reg), self.get_loss(loss_conf), self.get_loss(loss_cls)
 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -174,9 +180,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--weight_path', type=str, default='weight/darknet53_448.weights', help='weight file path')
     parser.add_argument('--resume', action='store_true',default=False,  help='resume training flag')
-    parser.add_argument('--batch_size', type=int, default=10,  help='mini batch number')
-    parser.add_argument('--gpu_id', type=int, default=0, help='gpu id')
-    parser.add_argument('--device', default='0,1,2,3', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--batch_size', '--b', type=int, default=20,  help='mini batch number')
+    parser.add_argument('--device', default='0,1', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
     opt = parser.parse_args()
 

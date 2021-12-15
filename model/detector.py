@@ -6,8 +6,7 @@ import torch.nn as nn
 from model.anchor.build_anchor import Anchors
 from model.backbones.build_backbone import build_backbone
 from model.head.build_head import build_head
-from model.loss.build_loss import build_loss
-from model.metrics.build_metrics import build_metrics
+
 from model.necks.build_fpn import build_fpn
 
 import time
@@ -19,74 +18,35 @@ class General_detector(nn.Module):
         self.num_anchors = cfg.MODEL['ANCHORS_PER_SCLAE']
         self.backbone = build_backbone(cfg)
         
-        self.fpn = build_fpn(cfg.MODEL['fpn'], cfg.MODEL['out_stride'], fpn_channels = self.backbone.fpn_size)
+        self.fpn = build_fpn(cfg.MODEL['fpn'], cfg.MODEL['out_stride'], channel_in = self.backbone.fpn_size)
 
         self.head = build_head(cfg.MODEL['head'], self.channel, cfg.MODEL['ANCHORS_PER_SCLAE'])
 
-        self.anchors = Anchors()
-        # self.all_anchors = self.anchors(torch.zeros(size=(self.batch_size, 3, cfg.TRAIN['TRAIN_IMG_SIZE'],cfg.TRAIN['TRAIN_IMG_SIZE']),
-        #                                 dtype=torch.double).cuda())
-        self.label_assign = build_metrics(cfg, cfg.MODEL['metrics'])
+
         
-        self.loss = build_loss(cfg.MODEL['loss'], cfg)
-        
-    def forward(self, images, targets=None):
+    def forward(self, images):
         """
         Arguments:
             images (list[Tensor] or ImageList): images to be processed
             targets (list[BoxList]): ground-truth boxes present in the image (optional)
         Returns:
             result (list[BoxList] or dict[Tensor]): the output from the model.
+                                                    [proposals_reg, proposals_cls]
         """
-        # time1 = torch.cuda.Event(enable_timing=True)
-        # time2 = torch.cuda.Event(enable_timing=True)
-        # time3 = torch.cuda.Event(enable_timing=True)
-        # time4 = torch.cuda.Event(enable_timing=True)
-        # time5 = torch.cuda.Event(enable_timing=True)
-        # time6 = torch.cuda.Event(enable_timing=True)
-        # time7 = torch.cuda.Event(enable_timing=True)
+
         self.batch_size, _, self.image_w, self.image_h = images.shape
-        # time1 = time.time()
-        # time1.record()
+
         large, medium, small = self.backbone(images) # {32: feature, 16: feature, 8: feature}
-        # time2 = time.time()
-        # time2.record()
-        # torch.cuda.synchronize()
-        # print('backbone', time1.elapsed_time(time2))
+
         features = [large, medium, small]
         features = self.fpn(features) # {large: feature, medium: feature, small: feature}
-        # time3 = time.time()
-        # time3.record()
-        # torch.cuda.synchronize()
-        # print('fpn', time2.elapsed_time(time3))
+
         proposals_reg, proposals_cls = self.head(features) # {large: feature, medium: feature, small: feature}
-        # time4 = time.time()
-        # time4.record()
-        # torch.cuda.synchronize()
-        # print('head', time3.elapsed_time(time4))
-        if targets is None:
-            return proposals_reg, proposals_cls
+
         proposals_reg = self.flatten_anchors(proposals_reg, 5)
         proposals_cls = self.flatten_anchors(proposals_cls, 20)
-        anchors = self.anchors(image = images, only_anchors = True)
-        # anchors = 1
-        # time5 = time.time()
-        # time5.record()
-        # torch.cuda.synchronize()
-        # print('anchors', time4.elapsed_time(time5))
-        cls_pred, reg_pred, cls_target, reg_target = self.label_assign(anchors, targets, proposals_reg, proposals_cls)
-        # time6 = time.time()
-        # time6.record()
-        # torch.cuda.synchronize()
-        # print('label assign', time5.elapsed_time(time6))
-        losses, losses_xy, losses_wh, losses_cls = self.loss(cls_pred, reg_pred, cls_target, reg_target) # reg_loss, cls_loss, conf_loss
-        # time7 = time.time()
-        # time7.record()
-        # torch.cuda.synchronize()
-        # print('loss', time6.elapsed_time(time7))
-        # print('backbone:', time2 - time1, 'fpn:', time3 - time2, 'head:', time4 - time3, 'anchor:', time5 - time4,
-            #   'label_assign:', time6 - time5, 'loss:', time7 - time6)
-        return losses, losses_xy, losses_wh, losses_cls
+
+        return [proposals_reg, proposals_cls]
 
     def flatten_anchors(self, anchors, feature_dim):
         """

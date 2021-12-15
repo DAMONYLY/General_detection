@@ -64,6 +64,7 @@ class Anchors(nn.Module):
         image_shapes = [image_shape // s for s in self.strides]
         dtype = image.dtype
         device = image.device
+        
         all_anchors = []
 
         for idx, level in enumerate(self.pyramid_levels):
@@ -75,8 +76,9 @@ class Anchors(nn.Module):
                 one_anchors = self.generate_anchor_single_level(image_shapes[idx], self.strides[idx], base_anchors)
             all_anchors.append(one_anchors)
 
-        all_anchors = torch.stack((all_anchors), dim=0)
-        return all_anchors.type(dtype).to(device)
+        all_anchors = torch.stack((all_anchors), dim=0).type(dtype).to(device)
+        print(device)
+        return all_anchors
 
 if __name__ == "__main__":
     gen = Anchors()

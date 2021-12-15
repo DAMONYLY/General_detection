@@ -190,32 +190,26 @@ def iou_xyxy_torch_batch(boxes1, boxes2):
     IOU = 1.0 * inter_area / union_area
     return IOU
 
-def iou_xywh_torch(boxes1, boxes2):
+def iou_xyxy_torch(boxes1, boxes2):
     """
-    :param boxes1: boxes1和boxes2的shape可以不相同，但是需要满足广播机制，且需要是Tensor
-    :param boxes2: 且需要保证最后一维为坐标维，以及坐标的存储结构为(x, y, w, h)
-    :return: 返回boxes1和boxes2的IOU，IOU的shape为boxes1和boxes2广播后的shape[:-1]
+    [N, 4] with [M, 4] return [N, M]
     """
-    boxes1_area = boxes1[..., 2] * boxes1[..., 3]
-    boxes2_area = boxes2[..., 2] * boxes2[..., 3]
 
-    # 分别计算出boxes1和boxes2的左上角坐标、右下角坐标
-    # 存储结构为(xmin, ymin, xmax, ymax)，其中(xmin,ymin)是bbox的左上角坐标，(xmax,ymax)是bbox的右下角坐标
-    boxes1 = torch.cat([boxes1[..., :2] - boxes1[..., 2:] * 0.5,
-                        boxes1[..., :2] + boxes1[..., 2:] * 0.5], dim=-1)
-    boxes2 = torch.cat([boxes2[..., :2] - boxes2[..., 2:] * 0.5,
-                        boxes2[..., :2] + boxes2[..., 2:] * 0.5], dim=-1)
+    boxes1_area = torch.prod(boxes1[..., 2:] - boxes1[..., :2], -1)
+    boxes2_area = torch.prod(boxes2[..., 2:] - boxes2[..., :2], -1)
 
-    # 计算出boxes1与boxes1相交部分的左上角坐标、右下角坐标
-    left_up = torch.max(boxes1[..., :2], boxes2[..., :2])
-    right_down = torch.min(boxes1[..., 2:], boxes2[..., 2:])
+    # 计算出boxes1与boxes2相交部分的左上角坐标、右下角坐标
+    left_up = torch.max(boxes1[:, None, :2], boxes2[None, :, :2])
+    right_down = torch.min(boxes1[:, None, 2:], boxes2[None, :, 2:])
 
     # 因为两个boxes没有交集时，(right_down - left_up) < 0，所以maximum可以保证当两个boxes没有交集时，它们之间的iou为0
-    inter_section = torch.max(right_down - left_up, torch.zeros_like(right_down))
-    inter_area = inter_section[..., 0] * inter_section[..., 1]
-    union_area = boxes1_area + boxes2_area - inter_area
+    inter_section = torch.max(right_down - left_up, torch.zeros_like(left_up))
+    inter_area = torch.prod(inter_section, -1)
+
+    union_area = boxes1_area[:, None] + boxes2_area[None, :] - inter_area
     IOU = 1.0 * inter_area / union_area
     return IOU
+
 
 
 def GIOU_xywh_torch(boxes1, boxes2):
