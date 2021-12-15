@@ -38,8 +38,11 @@ class label_assign(nn.Module):
         
         cls_preds_assign = []
         reg_preds_assign = []
+        obj_preds_assign = []
         cls_targets_assign = []
         reg_targets_assign = []
+        obj_targets_assign = []
+
         num, _ = targets.shape
         batch_size = int(targets[-1,-1] + 1)
         device = targets.device
@@ -49,10 +52,10 @@ class label_assign(nn.Module):
         levels = len(classifications)
         # anchors = q_anchors.unsqueeze(0).repeat(batch_size, 1, 1, 1).type(dtype).to(device)
         anchors = self.anchor.type(dtype).to(device)
-        # classifications = torch.rand((1, 150, 20))
+
         for level in range(levels):
             classification = classifications[level]
-            regression = regressions[level]
+            regression, objecteness = regressions[level][..., :4], regressions[level][..., -1:]
             bbox_annotation = self.convert_to_origin(targets)/self.strides[level] # [M, 4]
             target_center = self.get_center(targets)/self.strides[level] # [M, 2]
             target_grids = target_center.long()
@@ -62,29 +65,37 @@ class label_assign(nn.Module):
             overlaps = iou_xyxy_torch(anchor, bbox_annotation) # [N, M]
             max_overlaps, argmax_overlaps = overlaps.max(dim=0)
 
-
             assign_anchors = anchor[argmax_overlaps] # [M, 4] 
+            obj_targets = torch.zeros_like(objecteness)
             # Get the model classification and regression of the grid corresponding to the target center
             # cls_preds: [M, classification_out]. reg_preds: [M, regression_out]
             cls_preds = classification[targets_batch_ids, argmax_overlaps, target_grids[..., 0], target_grids[..., 1]]
             reg_preds = regression[targets_batch_ids, argmax_overlaps, target_grids[..., 0], target_grids[..., 1]]
+            
             # Obtain the  regression targets. [M, regression_out]
             reg_targets = self.encode(assign_anchors, targets)
             # Obtain the  classification targets. [M, classification_out]
             cls_targets = torch.zeros_like(cls_preds)
-
             cls_targets[num_idxs, targets[..., 4].long()] = 1
+
+            obj_targets = torch.zeros_like(objecteness)
+            obj_targets[targets_batch_ids, argmax_overlaps, target_grids[..., 0], target_grids[..., 1]] = 1
+            
             cls_preds_assign.append(cls_preds)
             reg_preds_assign.append(reg_preds)
+            obj_preds_assign.append(objecteness.contiguous().view(-1, 1))
             cls_targets_assign.append(cls_targets)
             reg_targets_assign.append(reg_targets)
+            obj_targets_assign.append(obj_targets.contiguous().view(-1, 1))
 
         cls_preds_assign = torch.cat(cls_preds_assign)
         reg_preds_assign = torch.cat(reg_preds_assign)
+        obj_preds_assign = torch.cat(obj_preds_assign)
         cls_targets_assign = torch.cat(cls_targets_assign)
         reg_targets_assign = torch.cat(reg_targets_assign)
+        obj_targets_assign = torch.cat(obj_targets_assign)
 
-        return cls_preds_assign, reg_preds_assign, cls_targets_assign, reg_targets_assign
+        return cls_preds_assign, reg_preds_assign, obj_preds_assign, cls_targets_assign, reg_targets_assign, obj_targets_assign
 
 
     def convert_to_origin(self, target):

@@ -1,20 +1,17 @@
 '目前是用于构建通用检测模型，backbone-->fpn-->head-->anchor-->label_assign-->loss'
 "2021年11月24日20:31:54"
-from numpy.lib.type_check import imag
-import torch
+
 import torch.nn as nn
-from model.anchor.build_anchor import Anchors
 from model.backbones.build_backbone import build_backbone
 from model.head.build_head import build_head
-
 from model.necks.build_fpn import build_fpn
 
-import time
+
 class General_detector(nn.Module):
     def __init__(self, cfg) -> None:
         super(General_detector, self).__init__()
         self.channel = 256
-        self.batch_size = cfg.TRAIN['BATCH_SIZE']
+        # self.batch_size = cfg.TRAIN['BATCH_SIZE']
         self.num_anchors = cfg.MODEL['ANCHORS_PER_SCLAE']
         self.backbone = build_backbone(cfg)
         

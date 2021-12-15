@@ -1,14 +1,9 @@
-import logging
 
-from torch._C import device
 from model.loss_calculater import Loss_calculater
 from model.build_model import build
 import utils.gpu as gpu
-from model.yolov3 import Yolov3
-from model.loss.yolo_loss import YoloV3Loss
 import torch
 import torch.optim as optim
-import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.data import DataLoader
 from utils.datasets import VocDataset
 import time
@@ -66,8 +61,8 @@ class Trainer(object):
         self.optimizer = optim.SGD(self.model.parameters(), lr=cfg.TRAIN["LR_INIT"],
                                    momentum=cfg.TRAIN["MOMENTUM"], weight_decay=cfg.TRAIN["WEIGHT_DECAY"])
 
-
-        # self.__load_model_weights(weight_path, resume)
+        if args.pre_train and args.weight_path:
+            self.__load_model_weights(weight_path, resume)
 
         self.scheduler = cosine_lr_scheduler.CosineDecayLR(self.optimizer,
                                                           T_max=self.epochs*len(self.train_dataloader),
@@ -131,7 +126,7 @@ class Trainer(object):
 
                 features = self.model(imgs)
 
-                loss, loss_reg, loss_conf, loss_cls = self.loss_calculater(features, bboxes)
+                loss, loss_reg, loss_obj, loss_cls = self.loss_calculater(features, bboxes)
                 # for multi-GPU compute loss, calculate average loss
                 # loss, loss_reg, loss_conf, loss_cls = self.get_loss(loss), self.get_loss(loss_reg), self.get_loss(loss_conf), self.get_loss(loss_cls)
 
@@ -141,7 +136,7 @@ class Trainer(object):
 
                 self.optimizer.step()
                 # Update running mean of tracked metrics
-                loss_items = torch.tensor([loss_reg.item(), loss_conf.item(), loss_cls.item(), loss.item()])
+                loss_items = torch.tensor([loss_reg.item(), loss_obj.item(), loss_cls.item(), loss.item()])
                 mloss = (mloss * i + loss_items) / (i + 1)
                 print_fre = 10
                 # Print batch results
@@ -149,7 +144,7 @@ class Trainer(object):
                     iter_time = iter_time/10
                     eta_seconds = (all_iter - (epoch - self.start_epoch) * len(self.train_dataloader) - (i - 1)) * iter_time
                     eta_str = "ETA: {}".format(datetime.timedelta(seconds=int(eta_seconds)))
-                    line = 'Epoch:[{}|{}], Batch:[{}|{}], iter_time:{:.2f}s, loss_all:{:.2f}, loss_reg:{:.2f}, loss_conf:{:.2f}, loss_cls:{:.2f}, lr:{:.4g}'.format(
+                    line = 'Epoch:[{}|{}], Batch:[{}|{}], iter_time:{:.2f}s, loss_all:{:.2f}, loss_reg:{:.2f}, loss_obj:{:.2f}, loss_cls:{:.2f}, lr:{:.2g}'.format(
                         epoch, self.epochs - 1, i, len(self.train_dataloader) - 1, iter_time, mloss[3], mloss[0],mloss[1], mloss[2], self.optimizer.param_groups[0]['lr'])
                     print(line +', ' + eta_str)
                     iter_time = 0
@@ -178,10 +173,11 @@ class Trainer(object):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weight_path', type=str, default='weight/darknet53_448.weights', help='weight file path')
+    parser.add_argument('--weight_path', type=str, default='', help='weight file path')
+    parser.add_argument('--pre_train', type=str, default=True, help='whether to use pre-trained models')
     parser.add_argument('--resume', action='store_true',default=False,  help='resume training flag')
     parser.add_argument('--batch_size', '--b', type=int, default=20,  help='mini batch number')
-    parser.add_argument('--device', default='0,1', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
     opt = parser.parse_args()
 

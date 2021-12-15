@@ -1,4 +1,5 @@
 from cv2 import mean
+from numpy.core.fromnumeric import shape
 import torch.nn as nn
 import torch
 class FocalLoss(nn.Module):
@@ -17,14 +18,18 @@ class FocalLoss(nn.Module):
 class Loss(nn.Module):
     def __init__(self, cls_loss, reg_loss):
         super(Loss, self).__init__()
-        self.x_y_loss = nn.BCELoss()
-        self.w_h_loss = nn.MSELoss()
+        self.xy_loss = nn.BCELoss()
+        self.wh_loss = nn.MSELoss()
+        self.obj_loss = nn.BCELoss(reduction='sum')
         self.cls_loss = nn.BCEWithLogitsLoss()
 
-    def forward(self, cls_pred, reg_pred, cls_target, reg_target):
-
-        loss_xy = self.x_y_loss(torch.sigmoid(reg_pred[..., :2]), reg_target[..., :2])
-        loss_wh = self.w_h_loss(reg_pred[..., 2:4], reg_target[..., 2:4])
+    def forward(self, cls_pred, reg_pred, obj_pred, cls_target, reg_target, obj_target):
+        obj_pred = torch.sigmoid(obj_pred)
+        loss_xy = self.xy_loss(torch.sigmoid(reg_pred[..., :2]), reg_target[..., :2])
+        loss_wh = self.wh_loss(reg_pred[..., 2:4], reg_target[..., 2:4])
+        loss_obj =  (self.obj_loss(obj_target * obj_pred, obj_target) + \
+                    self.obj_loss((1 - obj_target) * obj_pred, obj_target))/obj_target.shape[0]
         loss_cls = self.cls_loss(cls_pred, cls_target)
-        loss = loss_xy + loss_wh + loss_cls
-        return loss, loss_xy, loss_wh, loss_cls
+        loss_reg = loss_xy + loss_wh
+        loss = loss_reg + loss_obj + loss_cls
+        return loss, loss_reg, loss_obj, loss_cls
