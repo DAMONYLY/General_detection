@@ -133,7 +133,10 @@ def voc_eval(detpath,
                                  'det': det}
 
     # read dets
+    
     detfile = detpath.format(classname)
+    if not os.path.exists(detfile):
+        return 0, 0, 0
     with open(detfile, 'r') as f:
         lines = f.readlines()
 

@@ -23,7 +23,7 @@ from utils import cosine_lr_scheduler, model_info
 
 
 class Trainer(object):
-    def __init__(self, args, weight_path, resume, gpu_id):
+    def __init__(self, args, resume, gpu_id):
         #----------- 1. init seed for reproduce -----------------------------------
         init_seeds(0)
         #----------- 2. get gpu info -----------------------------------------------
@@ -32,7 +32,8 @@ class Trainer(object):
         self.start_epoch = 0
         self.best_mAP = 0.
         self.epochs = cfg.TRAIN["EPOCHS"]
-        self.weight_path = weight_path
+        self.weight_path = args.weight_path
+        self.save_path = args.save_path
         self.multi_scale_train = cfg.TRAIN["MULTI_SCALE_TRAIN"]
 
         #----------- 3. get train dataset ------------------------------------------
@@ -62,7 +63,8 @@ class Trainer(object):
                                    momentum=cfg.TRAIN["MOMENTUM"], weight_decay=cfg.TRAIN["WEIGHT_DECAY"])
 
         if args.pre_train and args.weight_path:
-            self.__load_model_weights(weight_path, resume)
+            print('start resume')
+            self.__load_model_weights(self.weight_path, resume)
 
         self.scheduler = cosine_lr_scheduler.CosineDecayLR(self.optimizer,
                                                           T_max=self.epochs*len(self.train_dataloader),
@@ -73,7 +75,7 @@ class Trainer(object):
 
     def __load_model_weights(self, weight_path, resume):
         if resume:
-            last_weight = os.path.join(os.path.split(weight_path)[0], "last.pt")
+            last_weight = os.path.join(weight_path, "last.pt")
             chkpt = torch.load(last_weight, map_location=self.device)
             self.model.load_state_dict(chkpt['model'])
 
@@ -86,11 +88,11 @@ class Trainer(object):
             self.model.load_darknet_weights(weight_path)
 
 
-    def __save_model_weights(self, epoch, mAP):
+    def __save_model_weights(self, path, epoch, mAP):
         if mAP > self.best_mAP:
             self.best_mAP = mAP
-        best_weight = os.path.join(os.path.split(self.weight_path)[0], "best.pt")
-        last_weight = os.path.join(os.path.split(self.weight_path)[0], "last.pt")
+        best_weight = os.path.join(path, "best.pt")
+        last_weight = os.path.join(path, "last.pt")
         chkpt = {'epoch': epoch,
                  'best_mAP': self.best_mAP,
                  'model': self.model.state_dict(),
@@ -101,7 +103,7 @@ class Trainer(object):
             torch.save(chkpt['model'], best_weight)
 
         if epoch > 0 and epoch % 10 == 0:
-            torch.save(chkpt, os.path.join(os.path.split(self.weight_path)[0], 'backup_epoch%g.pt'%epoch))
+            torch.save(chkpt, os.path.join(path, 'backup_epoch%g.pt'%epoch))
         del chkpt
 
     def get_loss(self, loss):
@@ -155,9 +157,9 @@ class Trainer(object):
                     print("multi_scale_img_size : {}".format(self.train_dataset.img_size))
                 end_time = time.time()
                 iter_time += end_time - start_time
-
+                break
             mAP = 0
-            if epoch >= 20:
+            if epoch >= 10:
                 print('*'*20+"Validate"+'*'*20)
                 with torch.no_grad():
                     APs = Evaluator(self.model).APs_voc()
@@ -166,14 +168,16 @@ class Trainer(object):
                         mAP += APs[i]
                     mAP = mAP / self.train_dataset.num_classes
                     print('mAP:%g'%(mAP))
-
-            #self.__save_model_weights(epoch, mAP)
-            #print('best mAP : %g' % (self.best_mAP))
+            if not os.path.exists(self.save_path):
+                os.makedirs(self.save_path)
+            self.__save_model_weights(self.save_path, epoch, mAP)
+            print('best mAP : %g' % (self.best_mAP))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--weight_path', type=str, default='', help='weight file path')
+    parser.add_argument('--save_path', type=str, default='./results', help='save model path')
     parser.add_argument('--pre_train', type=str, default=True, help='whether to use pre-trained models')
     parser.add_argument('--resume', action='store_true',default=False,  help='resume training flag')
     parser.add_argument('--batch_size', '--b', type=int, default=20,  help='mini batch number')
@@ -181,4 +185,4 @@ if __name__ == "__main__":
     parser.add_argument("--local_rank", type=int, default=0)
     opt = parser.parse_args()
 
-    Trainer(args = opt, weight_path=opt.weight_path, resume=opt.resume, gpu_id=opt.device).train()
+    Trainer(args = opt, resume=opt.resume, gpu_id=opt.device).train()

@@ -1,6 +1,6 @@
 '目前是用于构建通用检测模型，backbone-->fpn-->head-->anchor-->label_assign-->loss'
 "2021年11月24日20:31:54"
-
+import torch
 import torch.nn as nn
 from model.backbones.build_backbone import build_backbone
 from model.head.build_head import build_head
@@ -21,7 +21,7 @@ class General_detector(nn.Module):
 
 
         
-    def forward(self, images):
+    def forward(self, images, type = 'train'):
         """
         Arguments:
             images (list[Tensor] or ImageList): images to be processed
@@ -40,12 +40,12 @@ class General_detector(nn.Module):
 
         proposals_reg, proposals_cls = self.head(features) # {large: feature, medium: feature, small: feature}
 
-        proposals_reg = self.flatten_anchors(proposals_reg, 5)
-        proposals_cls = self.flatten_anchors(proposals_cls, 20)
+        proposals_reg = self.flatten_anchors(proposals_reg, 5, type=type)
+        proposals_cls = self.flatten_anchors(proposals_cls, 20, type=type)
 
         return [proposals_reg, proposals_cls]
 
-    def flatten_anchors(self, anchors, feature_dim):
+    def flatten_anchors(self, anchors, feature_dim, type = 'train'):
         """
         Args:
             anchors (list(torch.tensors)): the results of head output
@@ -53,9 +53,14 @@ class General_detector(nn.Module):
         Returns: 
             anchors (list(torch.tensors)) : like [[B, N, w, h, feature_dim],...]
         """
-
-        for id, item in enumerate(anchors):
-            anchors[id] = item.view(self.batch_size, self.num_anchors, feature_dim, item.shape[2], item.shape[3]).permute(0, 1, 3, 4, 2)
+        if type == 'train':
+            for id, item in enumerate(anchors):
+                anchors[id] = item.view(self.batch_size, self.num_anchors, feature_dim, item.shape[2], item.shape[3]).permute(0, 1, 3, 4, 2)
+        elif type == 'test':
+            for id, item in enumerate(anchors):
+                item = item.view(self.batch_size, self.num_anchors, feature_dim, item.shape[2], item.shape[3]).permute(0, 1, 3, 4, 2)
+                anchors[id] = item.contiguous().view(-1, feature_dim)
+            anchors = torch.cat(anchors)
         return anchors
 
     def load_darknet_weights(self, weight_file, cutoff=52):
