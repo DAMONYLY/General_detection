@@ -41,11 +41,11 @@ class VocDataset(Dataset):
 
         img, bboxes = dataAug.Mixup()(img_org, bboxes_org, img_mix, bboxes_mix)
         nl = len(bboxes)
-        labels_out = torch.zeros((nl, 7), dtype=torch.double)
+        labels_out = torch.zeros((nl, 7))
         
         if nl:
             labels_out[:, :-1] = torch.from_numpy(bboxes)
-        return torch.from_numpy(img), labels_out
+        return torch.from_numpy(img).float(), labels_out
         
     @staticmethod
     def collate_fn(batch):

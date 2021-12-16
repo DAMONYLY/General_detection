@@ -45,21 +45,16 @@ class Yolov3(nn.Module):
 
 
     def forward(self, x):
-        out = []
-
-        x_s, x_m, x_l = self.__backnone(x)
+        
+        x_l, x_m, x_s = self.__backnone(x)
         x_s, x_m, x_l = self.__fpn(x_l, x_m, x_s)
+        s_reg, s_cls = self.__head_s(x_s)
+        m_reg, m_cls = self.__head_s(x_m)
+        l_reg, l_cls = self.__head_s(x_l)
 
-        out.append(self.__head_s(x_s))
-        out.append(self.__head_m(x_m))
-        out.append(self.__head_l(x_l))
+        out = [[l_reg, m_reg, s_reg], [l_cls, m_cls, s_cls]]
 
-        if self.training:
-            p, p_d = list(zip(*out))
-            return p, p_d  # smalll, medium, large
-        else:
-            p, p_d = list(zip(*out))
-            return p, torch.cat(p_d, 0)
+        return out
 
 
     def __init_weights(self):

@@ -47,7 +47,7 @@ class Trainer(object):
                                            )
 
         #----------- 4. build model -----------------------------------------------
-        self.model = build(cfg).double().to(self.device)
+        self.model = build(cfg).to(self.device)
         self.model_info = model_info.get_model_info(self.model, cfg.TEST['TEST_IMG_SIZE'])
         print("Model Summary: {}".format(self.model_info))
         # self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
@@ -111,35 +111,39 @@ class Trainer(object):
 
     def train(self):
         # print(self.model)
+        
         print("Train datasets number is : {}".format(len(self.train_dataset)))
         all_iter = (self.epochs - self.start_epoch) * len(self.train_dataloader)
         for epoch in range(self.start_epoch, self.epochs):
+            
             self.model.train()
-
             mloss = torch.zeros(4)
             iter_time = 0
             for i, (imgs, bboxes)  in enumerate(self.train_dataloader):
-
+                # torch.cuda.synchronize()
                 start_time = time.time()
 
                 self.scheduler.step(len(self.train_dataloader)*epoch + i)
+
                 imgs = imgs.to(self.device)
                 bboxes = bboxes.to(self.device)
 
                 features = self.model(imgs)
-
+                
                 loss, loss_reg, loss_obj, loss_cls = self.loss_calculater(features, bboxes)
+
                 # for multi-GPU compute loss, calculate average loss
                 # loss, loss_reg, loss_conf, loss_cls = self.get_loss(loss), self.get_loss(loss_reg), self.get_loss(loss_conf), self.get_loss(loss_cls)
 
                 self.optimizer.zero_grad()
                 loss.backward()
-                
 
                 self.optimizer.step()
+
                 # Update running mean of tracked metrics
                 loss_items = torch.tensor([loss_reg.item(), loss_obj.item(), loss_cls.item(), loss.item()])
                 mloss = (mloss * i + loss_items) / (i + 1)
+
                 print_fre = 10
                 # Print batch results
                 if i != 0 and i% print_fre==0:
@@ -155,9 +159,10 @@ class Trainer(object):
                 if self.multi_scale_train and (i+1) % print_fre == 0:
                     self.train_dataset.img_size = random.choice(range(10, 20)) * 32
                     print("multi_scale_img_size : {}".format(self.train_dataset.img_size))
+
                 end_time = time.time()
                 iter_time += end_time - start_time
-                break
+                # break
             mAP = 0
             if epoch >= 10:
                 print('*'*20+"Validate"+'*'*20)
@@ -180,7 +185,7 @@ if __name__ == "__main__":
     parser.add_argument('--save_path', type=str, default='./results', help='save model path')
     parser.add_argument('--pre_train', type=str, default=True, help='whether to use pre-trained models')
     parser.add_argument('--resume', action='store_true',default=False,  help='resume training flag')
-    parser.add_argument('--batch_size', '--b', type=int, default=20,  help='mini batch number')
+    parser.add_argument('--batch_size', '--b', type=int, default=5,  help='mini batch number')
     parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
     opt = parser.parse_args()

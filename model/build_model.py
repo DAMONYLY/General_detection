@@ -4,7 +4,7 @@
 from model.yolov3 import Yolov3
 from model.detector import General_detector
 def build(cfg):
-    if cfg.MODEL['name'] == 'yolo':
+    if cfg.MODEL['name'].lower() == 'yolo':
         return Yolov3()
     elif cfg.MODEL['name'] == 'General':
         return General_detector(cfg)
