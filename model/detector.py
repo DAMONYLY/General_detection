@@ -5,6 +5,7 @@ import torch.nn as nn
 from model.backbones.build_backbone import build_backbone
 from model.head.build_head import build_head
 from model.necks.build_fpn import build_fpn
+from model.post_processing.yolo_decoder import yolo_decode
 
 
 class General_detector(nn.Module):
@@ -39,13 +40,22 @@ class General_detector(nn.Module):
         features = self.fpn(features) # {large: feature, medium: feature, small: feature}
 
         proposals_reg, proposals_cls = self.head(features) # {large: feature, medium: feature, small: feature}
-
-        proposals_reg = self.flatten_anchors(proposals_reg, 5, type=type)
-        proposals_cls = self.flatten_anchors(proposals_cls, 20, type=type)
-
+        
+        proposals_reg = self.flatten_anchors(proposals_reg, 5)
+        proposals_cls = self.flatten_anchors(proposals_cls, 20)
+        
+        if type == 'test':
+            output = []
+            for id, item in enumerate(proposals_reg):
+                feature = torch.cat((proposals_reg[id], proposals_cls[id]), dim=-1)
+                output.append(yolo_decode(feature, id))
+            output = torch.cat(output, dim=0)
+            return output
         return [proposals_reg, proposals_cls]
+            
 
-    def flatten_anchors(self, anchors, feature_dim, type = 'train'):
+
+    def flatten_anchors(self, anchors, feature_dim):
         """
         Args:
             anchors (list(torch.tensors)): the results of head output
@@ -53,14 +63,9 @@ class General_detector(nn.Module):
         Returns: 
             anchors (list(torch.tensors)) : like [[B, N, w, h, feature_dim],...]
         """
-        if type == 'train':
-            for id, item in enumerate(anchors):
-                anchors[id] = item.view(self.batch_size, self.num_anchors, feature_dim, item.shape[2], item.shape[3]).permute(0, 1, 3, 4, 2)
-        elif type == 'test':
-            for id, item in enumerate(anchors):
-                item = item.view(self.batch_size, self.num_anchors, feature_dim, item.shape[2], item.shape[3]).permute(0, 1, 3, 4, 2)
-                anchors[id] = item.contiguous().view(-1, feature_dim)
-            anchors = torch.cat(anchors)
+        
+        for id, item in enumerate(anchors):
+            anchors[id] = item.view(self.batch_size, self.num_anchors, feature_dim, item.shape[2], item.shape[3]).permute(0, 1, 3, 4, 2)
         return anchors
 
     def load_darknet_weights(self, weight_file, cutoff=52):

@@ -32,7 +32,7 @@ class Loss_calculater(nn.Module):
         cls_pred, reg_pred, obj_pred, cls_target, reg_target, obj_target = \
                             self.label_assign(anchors, targets, proposals_reg, proposals_cls)
 
-        losses, losses_xy, losses_wh, losses_cls = \
+        losses, losses_reg, losses_obj, losses_cls = \
                             self.loss(cls_pred, reg_pred, obj_pred, cls_target, reg_target, obj_target) # reg_loss, cls_loss, conf_loss
 
-        return losses, losses_xy, losses_wh, losses_cls
+        return losses, losses_reg, losses_obj, losses_cls

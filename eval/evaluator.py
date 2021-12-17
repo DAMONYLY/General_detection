@@ -12,7 +12,7 @@ from utils.tools import *
 from tqdm import tqdm
 from utils.visualize import *
 import time
-DATA_PATH = "/raid/yaoliangyong/General_detection/data"
+DATA_PATH = "/raid/yaoliangyong/General_detection/dataset"
 PROJECT_PATH = "/raid/yaoliangyong/General_detection"
 class Evaluator(object):
     def __init__(self, model, visiual=False):
@@ -40,9 +40,9 @@ class Evaluator(object):
             shutil.rmtree(self.pred_result_path)
         os.mkdir(self.pred_result_path)
         start_time = time.time()
-        # for img_ind in tqdm(img_inds):
-        img_inds = tqdm(img_inds[:100])
-        for img_ind in img_inds:
+        for img_ind in tqdm(img_inds):
+        # img_inds = tqdm(img_inds[:100])
+        # for img_ind in img_inds:
             img_path = os.path.join(self.val_data_path, 'JPEGImages', img_ind+'.jpg')
             img = cv2.imread(img_path)
             bboxes_prd = self.get_bbox(img, multi_test, flip_test)
@@ -69,7 +69,7 @@ class Evaluator(object):
                 s = ' '.join([img_ind, score, xmin, ymin, xmax, ymax]) + '\n'
 
                 with open(os.path.join(self.pred_result_path, 'comp4_det_test_' + class_name + '.txt'), 'a') as f:
-                    print(os.path.join(self.pred_result_path, 'comp4_det_test_' + class_name + '.txt'))
+                    # print(os.path.join(self.pred_result_path, 'comp4_det_test_' + class_name + '.txt'))
                     f.write(s)
         end_time = time.time()
         print('='*10 + 'load pic done, cost time:{:.2f}s'.format(end_time - start_time) + '='*10)
@@ -101,8 +101,7 @@ class Evaluator(object):
         img = self.__get_img_tensor(img, test_shape).type(self.type).to(self.device)
         self.model.eval()
         with torch.no_grad():
-            out = self.model(img, 'test')
-        p_d = torch.cat(out, dim=1)
+            p_d = self.model(img, 'test')
         pred_bbox = p_d.squeeze().cpu().numpy()
         bboxes = self.__convert_pred(pred_bbox, test_shape, (org_h, org_w), valid_scale)
 

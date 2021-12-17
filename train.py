@@ -1,4 +1,5 @@
 
+import re
 from model.loss_calculater import Loss_calculater
 from model.build_model import build
 import utils.gpu as gpu
@@ -54,6 +55,7 @@ class Trainer(object):
         if self.device and torch.cuda.device_count() > 1:
             model = torch.nn.DataParallel(self.model)
             self.model = model.to(self.device)
+
         #------------5. build loss calculater--------------------------------
         self.loss_calculater = Loss_calculater(cfg)
         # self.model.apply(tools.weights_init_normal)
@@ -61,9 +63,10 @@ class Trainer(object):
         #------------6. init optimizer, criterion, scheduler, weights-----------------------
         self.optimizer = optim.SGD(self.model.parameters(), lr=cfg.TRAIN["LR_INIT"],
                                    momentum=cfg.TRAIN["MOMENTUM"], weight_decay=cfg.TRAIN["WEIGHT_DECAY"])
-
+        
+        #------------7. resume training --------------------------------------
         if args.pre_train and args.weight_path:
-            print('start resume')
+            print('Start resume trainning from {}'.format(args.weight_path))
             self.__load_model_weights(self.weight_path, resume)
 
         self.scheduler = cosine_lr_scheduler.CosineDecayLR(self.optimizer,
@@ -75,7 +78,9 @@ class Trainer(object):
 
     def __load_model_weights(self, weight_path, resume):
         if resume:
-            last_weight = os.path.join(weight_path, "last.pt")
+
+            # last_weight = os.path.join(weight_path, "last.pt")
+            last_weight = weight_path
             chkpt = torch.load(last_weight, map_location=self.device)
             self.model.load_state_dict(chkpt['model'])
 
@@ -164,7 +169,7 @@ class Trainer(object):
                 iter_time += end_time - start_time
                 # break
             mAP = 0
-            if epoch >= 10:
+            if epoch >= 40:
                 print('*'*20+"Validate"+'*'*20)
                 with torch.no_grad():
                     APs = Evaluator(self.model).APs_voc()
@@ -183,7 +188,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--weight_path', type=str, default='', help='weight file path')
     parser.add_argument('--save_path', type=str, default='./results', help='save model path')
-    parser.add_argument('--pre_train', type=str, default=True, help='whether to use pre-trained models')
+    parser.add_argument('--pre_train', type=bool, default=True, help='whether to use pre-trained models')
     parser.add_argument('--resume', action='store_true',default=False,  help='resume training flag')
     parser.add_argument('--batch_size', '--b', type=int, default=5,  help='mini batch number')
     parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')

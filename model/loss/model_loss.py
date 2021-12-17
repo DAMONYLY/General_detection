@@ -18,7 +18,7 @@ class FocalLoss(nn.Module):
 class Loss(nn.Module):
     def __init__(self, cls_loss, reg_loss):
         super(Loss, self).__init__()
-        self.xy_loss = nn.BCELoss()
+        self.xy_loss = nn.MSELoss()
         self.wh_loss = nn.MSELoss()
         self.obj_loss = nn.BCELoss(reduction='sum')
         self.cls_loss = nn.BCEWithLogitsLoss()
