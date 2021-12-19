@@ -104,7 +104,7 @@ class Mixup(object):
     def __init__(self, p=0.5):
         self.p = p
 
-    def __call__(self, img_org, bboxes_org, img_mix, bboxes_mix):
+    def __call__(self, img_org, bboxes_org, img_mix=None, bboxes_mix=None):
         if random.random() > self.p:
             lam = np.random.beta(1.5, 1.5)
             img = lam * img_org + (1 - lam) * img_mix

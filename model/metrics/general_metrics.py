@@ -65,6 +65,14 @@ class label_assign(nn.Module):
             overlaps = iou_xyxy_torch(anchor, bbox_annotation) # [N, M]
             max_overlaps, argmax_overlaps = overlaps.max(dim=0)
 
+            overlaps_mask = max_overlaps > self.pos_iou_thr
+
+            targets_batch_ids = targets_batch_ids[overlaps_mask]
+            argmax_overlaps = argmax_overlaps[overlaps_mask]
+            target_grids = target_grids[overlaps_mask]
+            targets = targets[overlaps_mask]
+            num_idxs = torch.arange(targets.shape[0])
+
             assign_anchors = anchor[argmax_overlaps] # [M, 4] 
             obj_targets = torch.zeros_like(objecteness)
             # Get the model classification and regression of the grid corresponding to the target center
@@ -72,11 +80,15 @@ class label_assign(nn.Module):
             cls_preds = classification[targets_batch_ids, argmax_overlaps, target_grids[..., 0], target_grids[..., 1]]
             reg_preds = regression[targets_batch_ids, argmax_overlaps, target_grids[..., 0], target_grids[..., 1]]
             
+            # cls_preds = cls_preds[overlaps_mask]
+            # reg_preds = reg_preds[overlaps_mask]
+            # assign_anchors = assign_anchors[overlaps_mask]
             # Obtain the  regression targets. [M, regression_out]
-            reg_targets = self.encode(assign_anchors, targets)
+            reg_targets = self.encode(assign_anchors, targets/self.strides[level])
             # Obtain the  classification targets. [M, classification_out]
             cls_targets = torch.zeros_like(cls_preds)
             cls_targets[num_idxs, targets[..., 4].long()] = 1
+
 
             obj_targets = torch.zeros_like(objecteness)
             obj_targets[targets_batch_ids, argmax_overlaps, target_grids[..., 0], target_grids[..., 1]] = 1
@@ -104,7 +116,7 @@ class label_assign(nn.Module):
         Args:
             target (torch.Tensors): [M, 7]
         Returns:
-            target (torch.Tensors): [M, 7]
+            target (torch.Tensors): [M, 4]
         """
         widths = target[..., 2] - target[..., 0]
         heights = target[..., 3] - target[..., 1]
@@ -118,8 +130,8 @@ class label_assign(nn.Module):
         return output
 
     def get_center(self, target):
-        widths = target[..., 2] - target[..., 0]
-        heights = target[..., 3] - target[..., 1]
+        widths = target[..., 2] + target[..., 0]
+        heights = target[..., 3] + target[..., 1]
         output = torch.stack([widths/2, heights/2], dim=-1)
         return output
 

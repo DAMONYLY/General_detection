@@ -49,6 +49,7 @@ class Trainer(object):
 
         #----------- 4. build model -----------------------------------------------
         self.model = build(cfg).to(self.device)
+        
         self.model_info = model_info.get_model_info(self.model, cfg.TEST['TEST_IMG_SIZE'])
         print("Model Summary: {}".format(self.model_info))
         # self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
@@ -65,7 +66,7 @@ class Trainer(object):
                                    momentum=cfg.TRAIN["MOMENTUM"], weight_decay=cfg.TRAIN["WEIGHT_DECAY"])
         
         #------------7. resume training --------------------------------------
-        if args.pre_train and args.weight_path:
+        if args.resume and args.weight_path:
             print('Start resume trainning from {}'.format(args.weight_path))
             self.__load_model_weights(self.weight_path, resume)
 
@@ -124,9 +125,9 @@ class Trainer(object):
             self.model.train()
             mloss = torch.zeros(4)
             iter_time = 0
+            start_time = time.time()
             for i, (imgs, bboxes)  in enumerate(self.train_dataloader):
                 # torch.cuda.synchronize()
-                start_time = time.time()
 
                 self.scheduler.step(len(self.train_dataloader)*epoch + i)
 
@@ -167,12 +168,13 @@ class Trainer(object):
 
                 end_time = time.time()
                 iter_time += end_time - start_time
+                start_time = time.time()
                 # break
             mAP = 0
-            if epoch >= 40:
+            if epoch >= 31:
                 print('*'*20+"Validate"+'*'*20)
                 with torch.no_grad():
-                    APs = Evaluator(self.model).APs_voc()
+                    APs = Evaluator(self.model, True).APs_voc()
                     for i in APs:
                         print("{} --> mAP : {}".format(i, APs[i]))
                         mAP += APs[i]
@@ -186,13 +188,15 @@ class Trainer(object):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weight_path', type=str, default='', help='weight file path')
+    parser.add_argument('--weight_path', type=str, default='./results/last.pt', help='weight file path')
     parser.add_argument('--save_path', type=str, default='./results', help='save model path')
     parser.add_argument('--pre_train', type=bool, default=True, help='whether to use pre-trained models')
     parser.add_argument('--resume', action='store_true',default=False,  help='resume training flag')
     parser.add_argument('--batch_size', '--b', type=int, default=5,  help='mini batch number')
-    parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='0,1', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
     opt = parser.parse_args()
-
+    # update_opt_to_cfg(opt, cfg)
+    cfg.pre_train = opt.pre_train
+    cfg.weight_path = opt.weight_path
     Trainer(args = opt, resume=opt.resume, gpu_id=opt.device).train()

@@ -24,28 +24,35 @@ class VocDataset(Dataset):
         self.class_to_id = dict(zip(self.classes, range(self.num_classes)))
         # get txt file, one raw means one pic
         self.__annotations = self.__load_annotations(anno_file_type)
-        self.dasd = {}
+        self.mix = False
+        self.label = {}
         #cupy
     def __len__(self):
         return  len(self.__annotations)
 
     def __getitem__(self, item):
         # get pic and box
-        img_org, bboxes_org = self.__parse_annotation(self.__annotations[item])
-        img_org = img_org.transpose(2, 0, 1)  # HWC->CHW
-        
-        item_mix = random.randint(0, len(self.__annotations)-1)
-        img_mix, bboxes_mix = self.__parse_annotation(self.__annotations[item_mix])
-        img_mix = img_mix.transpose(2, 0, 1)
+        # if item not in self.label:
+        img, bboxes = self.__parse_annotation(self.__annotations[item])
+        img = img.transpose(2, 0, 1)  # HWC->CHW
+        if self.mix:
+            item_mix = random.randint(0, len(self.__annotations)-1)
+            img_mix, bboxes_mix = self.__parse_annotation(self.__annotations[item_mix])
+            img_mix = img_mix.transpose(2, 0, 1)
 
-
-        img, bboxes = dataAug.Mixup()(img_org, bboxes_org, img_mix, bboxes_mix)
+            img, bboxes = dataAug.Mixup()(img, bboxes, img_mix, bboxes_mix)
+        else:
+            img, bboxes = dataAug.Mixup(p=2)(img, bboxes)
         nl = len(bboxes)
         labels_out = torch.zeros((nl, 7))
         
         if nl:
             labels_out[:, :-1] = torch.from_numpy(bboxes)
+            # self.label[item] = [torch.from_numpy(img).float(), labels_out]
         return torch.from_numpy(img).float(), labels_out
+        # else:
+            # return self.label[item][0], self.label[item][1]
+        
         
     @staticmethod
     def collate_fn(batch):

@@ -22,4 +22,5 @@ __pycache__/
 *.pt
 *.onnx
 *.engine
+*.jpg
 events.out.tfevents*

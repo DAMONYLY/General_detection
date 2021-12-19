@@ -20,15 +20,16 @@ class Loss(nn.Module):
         super(Loss, self).__init__()
         self.xy_loss = nn.MSELoss()
         self.wh_loss = nn.MSELoss()
-        self.obj_loss = nn.BCELoss(reduction='sum')
+        self.obj_loss = nn.BCELoss()
         self.cls_loss = nn.BCEWithLogitsLoss()
-
+        self.test = nn.BCELoss()
     def forward(self, cls_pred, reg_pred, obj_pred, cls_target, reg_target, obj_target):
         obj_pred = torch.sigmoid(obj_pred)
         loss_xy = self.xy_loss(torch.sigmoid(reg_pred[..., :2]), reg_target[..., :2])
         loss_wh = self.wh_loss(reg_pred[..., 2:4], reg_target[..., 2:4])
-        loss_obj =  (self.obj_loss(obj_target * obj_pred, obj_target) + \
-                    self.obj_loss((1 - obj_target) * obj_pred, obj_target))/obj_target.shape[0]
+        # loss_obj =  (self.obj_loss(obj_target * obj_pred, obj_target) + \
+                    # self.obj_loss((1 - obj_target) * obj_pred, (1 - obj_target) * obj_target))/obj_target.shape[0]
+        loss_obj = self.obj_loss(obj_pred, obj_target) 
         loss_cls = self.cls_loss(cls_pred, cls_target)
         loss_reg = loss_xy + loss_wh
         loss = loss_reg + loss_obj + loss_cls

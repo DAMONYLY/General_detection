@@ -59,7 +59,7 @@ def visualize_boxes(image, boxes, labels, probs, class_labels):
   category_index = {}
   for id_, label_name in enumerate(class_labels):
     category_index[id_] = {"name": label_name}
-  image=visualize_boxes_and_labels_on_image_array(image, boxes, labels, probs, category_index)
+  image=visualize_boxes_and_labels_on_image_array(image, boxes, labels, probs, category_index, min_score_thresh=0.3)
   return image
 
 def visualize_boxes_and_labels_on_image_array(
@@ -334,9 +334,11 @@ if __name__ == '__main__':
   import matplotlib.pyplot as plt
   import cv2
 
-  imshow = cv2.imread('/home/leon/data/data/voc/images/val/009963.jpg')
-  _boxes = np.array([[234.5, 161.0, 63.0+234.5, 42.0+161]])
-  _labels = np.array([42])
+  # imshow = cv2.imread('/raid/yaoliangyong/General_detection/dataset/VOCdevkit/VOC2007_test/JPEGImages/009963.jpg')
+  imshow = cv2.imread('/raid/yaoliangyong/General_detection/honey.jpg')
+  imshow = cv2.resize(imshow, (300, 400))
+  _boxes = np.array([[50.0, 170.0, 235.0, 400]])
+  _labels = np.array([8])
   _probs = np.array([0.87])
   cateNames = [
     "person",
@@ -421,4 +423,4 @@ if __name__ == '__main__':
     "toothbrush"
   ]
   visualize_boxes(image=imshow, boxes=_boxes, labels=_labels, probs=_probs, class_labels=cateNames)
-  cv2.imwrite("/home/leon/res.jpg", imshow)
+  cv2.imwrite("/raid/yaoliangyong/General_detection/res.jpg", imshow)
