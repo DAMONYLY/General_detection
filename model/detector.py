@@ -2,6 +2,7 @@
 "2021年11月24日20:31:54"
 import torch
 import torch.nn as nn
+from model.anchor.build_anchor import Anchors
 from model.backbones.build_backbone import build_backbone
 from model.head.build_head import build_head
 from model.necks.build_fpn import build_fpn
@@ -14,12 +15,15 @@ class General_detector(nn.Module):
         self.channel = 256
         # self.batch_size = cfg.TRAIN['BATCH_SIZE']
         self.num_anchors = cfg.MODEL['ANCHORS_PER_SCLAE']
+        self.train_img_shape = cfg.TRAIN['TRAIN_IMG_SIZE']
+        self.test_img_shape = cfg.TEST['TEST_IMG_SIZE']
         self.backbone = build_backbone(cfg)
         
         self.fpn = build_fpn(cfg.MODEL['fpn'], cfg.MODEL['out_stride'], channel_in = self.backbone.fpn_size)
 
         self.head = build_head(cfg.MODEL['head'], self.channel, cfg.MODEL['ANCHORS_PER_SCLAE'])
 
+        self.anchor = Anchors()
 
         
     def forward(self, images, type = 'train'):
@@ -44,11 +48,13 @@ class General_detector(nn.Module):
         proposals_reg = self.flatten_anchors(proposals_reg, 5)
         proposals_cls = self.flatten_anchors(proposals_cls, 20)
         
+        
         if type == 'test':
+            anchors = self.anchor(self.test_img_shape)
             output = []
             for id, item in enumerate(proposals_reg):
                 feature = torch.cat((proposals_reg[id], proposals_cls[id]), dim=-1)
-                output.append(yolo_decode(feature, id))
+                output.append(yolo_decode(feature, anchors[id]))
             output = torch.cat(output, dim=0)
             return output
         return [proposals_reg, proposals_cls]

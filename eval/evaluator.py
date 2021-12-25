@@ -117,6 +117,7 @@ class Evaluator(object):
         预测框进行过滤，去除尺度不合理的框
         """
         pred_coor = xywh2xyxy(pred_bbox[:, :4])
+        # pred_coor = pred_bbox[:, :4]
         pred_conf = pred_bbox[:, 4]
         pred_prob = pred_bbox[:, 5:]
 

@@ -9,7 +9,8 @@ from model.metrics.build_metrics import build_metrics
 class Loss_calculater(nn.Module):
     def __init__(self, cfg) -> None:
         super(Loss_calculater, self).__init__()
-        
+        self.img_shape = cfg.TRAIN['TRAIN_IMG_SIZE']
+
         self.anchors = Anchors()
         # self.all_anchors = self.anchors(torch.zeros(size=(self.batch_size, 3, cfg.TRAIN['TRAIN_IMG_SIZE'],cfg.TRAIN['TRAIN_IMG_SIZE']),
         #                                 dtype=torch.double).cuda())
@@ -27,7 +28,7 @@ class Loss_calculater(nn.Module):
         """
 
         # anchors = self.anchors(image = images, only_anchors = True)
-        anchors = []
+        anchors = self.anchors(self.img_shape)
         proposals_reg, proposals_cls = features
         cls_pred, reg_pred, obj_pred, cls_target, reg_target, obj_target = \
                             self.label_assign(anchors, targets, proposals_reg, proposals_cls)

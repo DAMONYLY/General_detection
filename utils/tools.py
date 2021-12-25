@@ -195,8 +195,8 @@ def iou_xyxy_torch(boxes1, boxes2):
     [N, 4] with [M, 4] return [N, M]
     """
 
-    boxes1_area = torch.prod(boxes1[..., 2:] - boxes1[..., :2], -1)
-    boxes2_area = torch.prod(boxes2[..., 2:] - boxes2[..., :2], -1)
+    boxes1_area = torch.prod(boxes1[:, 2:] - boxes1[:, :2], -1)
+    boxes2_area = torch.prod(boxes2[:, 2:] - boxes2[:, :2], -1)
 
     # 计算出boxes1与boxes2相交部分的左上角坐标、右下角坐标
     left_up = torch.max(boxes1[:, None, :2], boxes2[None, :, :2])
@@ -209,7 +209,24 @@ def iou_xyxy_torch(boxes1, boxes2):
     union_area = boxes1_area[:, None] + boxes2_area[None, :] - inter_area
     IOU = 1.0 * inter_area / union_area
     return IOU
+def calc_iou(a, b):
+    area = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
 
+    iw = torch.min(torch.unsqueeze(a[:, 2], dim=1), b[:, 2]) - torch.max(torch.unsqueeze(a[:, 0], 1), b[:, 0])
+    ih = torch.min(torch.unsqueeze(a[:, 3], dim=1), b[:, 3]) - torch.max(torch.unsqueeze(a[:, 1], 1), b[:, 1])
+
+    iw = torch.clamp(iw, min=0)
+    ih = torch.clamp(ih, min=0)
+
+    ua = torch.unsqueeze((a[:, 2] - a[:, 0]) * (a[:, 3] - a[:, 1]), dim=1) + area - iw * ih
+
+    ua = torch.clamp(ua, min=1e-8)
+
+    intersection = iw * ih
+
+    IoU = intersection / ua
+
+    return IoU
 
 
 def GIOU_xywh_torch(boxes1, boxes2):

@@ -71,7 +71,7 @@ def visualize_boxes_and_labels_on_image_array(
     instance_masks=None,
     instance_boundaries=None,
     use_normalized_coordinates=False,
-    max_boxes_to_draw=20,
+    max_boxes_to_draw=None,
     min_score_thresh=.5,
     agnostic_mode=False,
     line_thickness=4,
@@ -335,7 +335,7 @@ if __name__ == '__main__':
   import cv2
 
   # imshow = cv2.imread('/raid/yaoliangyong/General_detection/dataset/VOCdevkit/VOC2007_test/JPEGImages/009963.jpg')
-  imshow = cv2.imread('/raid/yaoliangyong/General_detection/honey.jpg')
+  imshow = cv2.imread('/raid/yaoliangyong/General_detection/000001.jpg')
   imshow = cv2.resize(imshow, (300, 400))
   _boxes = np.array([[50.0, 170.0, 235.0, 400]])
   _labels = np.array([8])

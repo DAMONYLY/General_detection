@@ -27,11 +27,11 @@ MODEL = {
 
 # train
 TRAIN = {
-         "TRAIN_IMG_SIZE":448,
+         "TRAIN_IMG_SIZE":320,
          "AUGMENT":False,
          "MULTI_SCALE_TRAIN":False,
          "IOU_THRESHOLD_LOSS":0.5,
-         "EPOCHS":50,
+         "EPOCHS":151,
          "NUMBER_WORKERS":4,
          "MOMENTUM":0.9,
          "WEIGHT_DECAY":0.0005,

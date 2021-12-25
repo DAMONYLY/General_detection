@@ -1,4 +1,3 @@
-import torch.nn as nn
 
 from model.backbones.darknet53 import Darknet53
 from model.backbones.resnet import *

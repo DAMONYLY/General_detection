@@ -1,7 +1,7 @@
 
-import re
 from model.loss_calculater import Loss_calculater
 from model.build_model import build
+from model.loss.ultry_loss import ComputeLoss
 import utils.gpu as gpu
 import torch
 import torch.optim as optim
@@ -32,9 +32,11 @@ class Trainer(object):
 
         self.start_epoch = 0
         self.best_mAP = 0.
+        self.DP = False
         self.epochs = cfg.TRAIN["EPOCHS"]
         self.weight_path = args.weight_path
         self.save_path = args.save_path
+        self.save_model = args.save_model
         self.multi_scale_train = cfg.TRAIN["MULTI_SCALE_TRAIN"]
 
         #----------- 3. get train dataset ------------------------------------------
@@ -56,9 +58,11 @@ class Trainer(object):
         if self.device and torch.cuda.device_count() > 1:
             model = torch.nn.DataParallel(self.model)
             self.model = model.to(self.device)
+            self.DP = True
 
         #------------5. build loss calculater--------------------------------
         self.loss_calculater = Loss_calculater(cfg)
+        # self.compute_loss = ComputeLoss(model)
         # self.model.apply(tools.weights_init_normal)
 
         #------------6. init optimizer, criterion, scheduler, weights-----------------------
@@ -99,9 +103,13 @@ class Trainer(object):
             self.best_mAP = mAP
         best_weight = os.path.join(path, "best.pt")
         last_weight = os.path.join(path, "last.pt")
+        if self.DP:
+            model = self.model.module
+        else:
+            model = self.model
         chkpt = {'epoch': epoch,
                  'best_mAP': self.best_mAP,
-                 'model': self.model.state_dict(),
+                 'model': model.state_dict(),
                  'optimizer': self.optimizer.state_dict()}
         torch.save(chkpt, last_weight)
 
@@ -114,6 +122,14 @@ class Trainer(object):
 
     def get_loss(self, loss):
         return loss.mean()
+
+    def change_ultra(self, feature):
+        f_reg, f_cls = feature
+        output = []
+        for id, item in enumerate(f_reg):
+            feature = torch.cat((f_reg[id], f_cls[id]), dim=-1)
+            output.append(feature)
+        return output
 
     def train(self):
         # print(self.model)
@@ -129,13 +145,14 @@ class Trainer(object):
             for i, (imgs, bboxes)  in enumerate(self.train_dataloader):
                 # torch.cuda.synchronize()
 
-                self.scheduler.step(len(self.train_dataloader)*epoch + i)
+                # self.scheduler.step(len(self.train_dataloader)*epoch + i)
 
                 imgs = imgs.to(self.device)
                 bboxes = bboxes.to(self.device)
 
                 features = self.model(imgs)
-                
+                # features = self.change_ultra(features)
+                # loss, loss_reg, loss_obj, loss_cls = self.compute_loss(features, bboxes)
                 loss, loss_reg, loss_obj, loss_cls = self.loss_calculater(features, bboxes)
 
                 # for multi-GPU compute loss, calculate average loss
@@ -171,7 +188,7 @@ class Trainer(object):
                 start_time = time.time()
                 # break
             mAP = 0
-            if epoch >= 31:
+            if epoch >= 11:
                 print('*'*20+"Validate"+'*'*20)
                 with torch.no_grad():
                     APs = Evaluator(self.model, True).APs_voc()
@@ -180,20 +197,22 @@ class Trainer(object):
                         mAP += APs[i]
                     mAP = mAP / self.train_dataset.num_classes
                     print('mAP:%g'%(mAP))
-            if not os.path.exists(self.save_path):
-                os.makedirs(self.save_path)
-            self.__save_model_weights(self.save_path, epoch, mAP)
-            print('best mAP : %g' % (self.best_mAP))
+            if self.save_model:
+                if not os.path.exists(self.save_path):
+                    os.makedirs(self.save_path)
+                self.__save_model_weights(self.save_path, epoch, mAP)
+            # print('best mAP : %g' % (self.best_mAP))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weight_path', type=str, default='./results/last.pt', help='weight file path')
+    parser.add_argument('--weight_path', type=str, default='results/01/backup_epoch50.pt', help='weight file path')
     parser.add_argument('--save_path', type=str, default='./results', help='save model path')
     parser.add_argument('--pre_train', type=bool, default=True, help='whether to use pre-trained models')
     parser.add_argument('--resume', action='store_true',default=False,  help='resume training flag')
-    parser.add_argument('--batch_size', '--b', type=int, default=5,  help='mini batch number')
-    parser.add_argument('--device', default='0,1', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--save_model', action='store_true', default=False,  help='whether to save models')
+    parser.add_argument('--batch_size', '--b', type=int, default=60,  help='mini batch number')
+    parser.add_argument('--device', default='1', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
     opt = parser.parse_args()
     # update_opt_to_cfg(opt, cfg)

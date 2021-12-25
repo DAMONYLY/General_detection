@@ -20,56 +20,80 @@ class Head(nn.Module):
         self.num_anchors = num_anchor
         self.reg_s = nn.Sequential(
             Convolutional(filters_in=channel_in, filters_out=channel_mid, 
-                            kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+                            kernel_size=3, stride=1, pad=1, activate='relu'),
             # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
-                            # kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+                            # kernel_size=3, stride=1, pad=1, activate='relu'),
+            # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            # kernel_size=3, stride=1, pad=1, activate='relu'),
+            Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            kernel_size=3, stride=1, pad=1, activate='relu'),
             Convolutional(filters_in=channel_mid, filters_out=self.reg_channel * num_anchor, 
-                            kernel_size=1, stride=1, pad=0),
+                            kernel_size=3, stride=1, pad=1),
         )
 
         self.cls_s = nn.Sequential(
             Convolutional(filters_in=channel_in, filters_out=channel_mid, 
-                            kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+                            kernel_size=3, stride=1, pad=1, activate='relu'),
             # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
-                            # kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+            #                 kernel_size=3, stride=1, pad=1, activate='relu'),
+            # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+            #                 kernel_size=3, stride=1, pad=1, activate='relu'),
+            Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            kernel_size=3, stride=1, pad=1, activate='relu'),
             Convolutional(filters_in=channel_mid, filters_out=self.cls_channel * num_anchor, 
-                            kernel_size=1, stride=1, pad=0),
+                            kernel_size=3, stride=1, pad=1),
         )
 
         self.reg_m = nn.Sequential(
             Convolutional(filters_in=channel_in, filters_out=channel_mid, 
-                            kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+                            kernel_size=3, stride=1, pad=1, activate='relu'),
             # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
-                            # kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+            #                 kernel_size=3, stride=1, pad=1, activate='relu'),
+            # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+            #                 kernel_size=3, stride=1, pad=1, activate='relu'),
+            Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            kernel_size=3, stride=1, pad=1, activate='relu'),
             Convolutional(filters_in=channel_mid, filters_out=self.reg_channel * num_anchor, 
-                            kernel_size=1, stride=1, pad=0),
+                            kernel_size=3, stride=1, pad=1),
         )
 
         self.cls_m = nn.Sequential(
             Convolutional(filters_in=channel_in, filters_out=channel_mid, 
-                            kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+                            kernel_size=3, stride=1, pad=1, activate='relu'),
             # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
-                            # kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+            #                 kernel_size=3, stride=1, pad=1, activate='relu'),
+            # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+            #                 kernel_size=3, stride=1, pad=1, activate='relu'),
+            Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            kernel_size=3, stride=1, pad=1, activate='relu'),
             Convolutional(filters_in=channel_mid, filters_out=self.cls_channel * num_anchor, 
-                            kernel_size=1, stride=1, pad=0),
+                            kernel_size=3, stride=1, pad=1),
         )
 
         self.reg_l = nn.Sequential(
             Convolutional(filters_in=channel_in, filters_out=channel_mid, 
-                            kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+                            kernel_size=3, stride=1, pad=1, activate='relu'),
             # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
-                            # kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+            #                 kernel_size=3, stride=1, pad=1, activate='relu'),
+            # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+            #                 kernel_size=3, stride=1, pad=1, activate='relu'),
+            Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            kernel_size=3, stride=1, pad=1, activate='relu'),              
             Convolutional(filters_in=channel_mid, filters_out=self.reg_channel * num_anchor, 
-                            kernel_size=1, stride=1, pad=0),
+                            kernel_size=3, stride=1, pad=1),
         )
 
         self.cls_l = nn.Sequential(
             Convolutional(filters_in=channel_in, filters_out=channel_mid, 
-                            kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+                            kernel_size=3, stride=1, pad=1, activate='relu'),
             # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
-                            # kernel_size=3, stride=1, pad=1, norm='bn', activate='relu'),
+            #                 kernel_size=3, stride=1, pad=1, activate='relu'),
+            # Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+            #                 kernel_size=3, stride=1, pad=1, activate='relu'),
+            Convolutional(filters_in=channel_mid, filters_out=channel_mid, 
+                            kernel_size=3, stride=1, pad=1, activate='relu'),
             Convolutional(filters_in=channel_mid, filters_out=self.cls_channel * num_anchor, 
-                            kernel_size=1, stride=1, pad=0),
+                            kernel_size=3, stride=1, pad=1),
         )
     def forward(self, inputs): # [large, medium, small]
         """Return feature maps.

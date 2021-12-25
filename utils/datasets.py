@@ -91,7 +91,7 @@ class VocDataset(Dataset):
         img, bboxes = dataAug.RandomCrop()(np.copy(img), np.copy(bboxes))
         img, bboxes = dataAug.RandomAffine()(np.copy(img), np.copy(bboxes))
         img, bboxes = dataAug.Resize((self.img_size, self.img_size), True)(np.copy(img), np.copy(bboxes))
-
+        
         return img, bboxes
 
     def __creat_label(self, bboxes):
