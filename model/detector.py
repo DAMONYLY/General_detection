@@ -6,7 +6,7 @@ from model.anchor.build_anchor import Anchors
 from model.backbones.build_backbone import build_backbone
 from model.head.build_head import build_head
 from model.necks.build_fpn import build_fpn
-from model.post_processing.yolo_decoder import yolo_decode
+from model.post_processing.yolo_decoder import yolo_decode, clip_bboxes
 
 
 class General_detector(nn.Module):
@@ -50,12 +50,14 @@ class General_detector(nn.Module):
         
         
         if type == 'test':
-            anchors = self.anchor(self.test_img_shape)
+            anchors = self.anchor(images)
             output = []
             for id, item in enumerate(proposals_reg):
                 feature = torch.cat((proposals_reg[id], proposals_cls[id]), dim=-1)
                 output.append(yolo_decode(feature, anchors[id]))
             output = torch.cat(output, dim=0)
+            # 2. 将超出图片边界的框截掉
+            output = clip_bboxes(output, images)
             return output
         return [proposals_reg, proposals_cls]
             

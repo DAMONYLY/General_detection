@@ -28,8 +28,8 @@ class label_assign(nn.Module):
         # TODO
         """
         Arguments:
-            anchors : [levels, N,4] xyxy
-            target: [M, 7] 6 contains [x,y,x,y,ind,mixind,imgh_batch_id]
+            anchors : [[levels, N, w, h, 4],...] xyxy type
+            target: [B, Max, 6] 6 contains [x,y,x,y,ind,mixind]
             classifications: [[B,N,w,h,20],...] model cls pred, 20指类别
             regressions: [[B, N,w,h,5],...] model reg pred
         Returns:
@@ -46,62 +46,52 @@ class label_assign(nn.Module):
         reg_targets_assign = []
         obj_targets_assign = []
 
-        batch_size = int(targets[-1,-1] + 1)
+        batch_size = targets.shape[0]
+
         device = targets.device
         dtype = targets.dtype
-        levels = len(classifications)
 
-        # anchors = anchors
+        anchors = anchors.unsqueeze(0).repeat(batch_size, 1, 1)
+        
+        for batch_id in range(batch_size):
+            classification = classifications[batch_id]
+            regression, objecteness = regressions[batch_id][..., :4], regressions[batch_id][..., -1:]
+            anchor = anchors[batch_id].type(dtype).to(device)
+            target = targets[batch_id]
+            target = target[target[:, 4] != -1]
 
-        for level in range(levels):
-            classification = classifications[level]
-            regression, objecteness = regressions[level][..., :4], regressions[level][..., -1:]
-            # feature_w, feature_h = classification.shape[2:4]
-            
-            # bbox_annotation = targets / self.strides[level] # [M, 4]
-            # target_grids = torch.floor(self.get_center(targets) / self.strides[level]).long() # [M, 2]
-            # target_grids = target_center.long()
-            anchor = anchors[level].type(dtype).to(device).view(-1, 4)
             num_anchor = anchor.shape[0]
-            # anchor_target = self.anchor_to_target(anchor, target_grids) # [3, M, 4]
-            # anchor_featuremap = self.anchor_featuremap(anchor, feature_w, feature_h)
+
             # 计算IOU between anchor and target
             # overlaps = iou_xyxy_torch_batch(anchor, bbox_annotation)
-            overlaps = iou_xyxy_torch(anchor, targets[..., :4]) # [N, M]
-            # test = calc_iou(anchor, targets[..., :4])
+            overlaps = iou_xyxy_torch(anchor, target[..., :4]) # [N, M]
+            
             max_overlaps, argmax_overlaps = overlaps.max(dim=1)
 
-            # assign_mask = (torch.ones(classification.shape) * -1).type(dtype).to(device)
-            # overlaps_mask = max_overlaps > self.pos_iou_thr
             neg_mask = max_overlaps < self.neg_iou_thr
             pos_mask = max_overlaps > self.pos_iou_thr
             
-            # print('pos:', torch.sum(pos_mask), 'neg:', torch.sum(neg_mask), 'all:', num_anchor, 'targets:', targets.shape[0])
-            
-            assign_targets = targets[argmax_overlaps]
+
+            assign_targets = target[argmax_overlaps]
             pos_assign_targets = assign_targets[pos_mask]
-            neg_assign_targets = assign_targets[neg_mask]
-            pos_targets_batch_ids = pos_assign_targets[..., -1].long()
-            neg_targets_batch_ids = neg_assign_targets[..., -1].long()
             
             # bulid cls targets and preds
-            classification = classification.contiguous().view(batch_size, num_anchor, classification.shape[-1])
-            cls_preds = classification[pos_targets_batch_ids, pos_mask]
+            # classification = classification.contiguous().view(batch_size, num_anchor, classification.shape[-1])
+            cls_preds = classification[pos_mask]
 
             cls_targets = torch.zeros_like(cls_preds)
             
             cls_targets[torch.arange(cls_targets.shape[0]), pos_assign_targets[..., 4].long()] = 1
 
             # bulid reg targets and preds
-            regression = regression.contiguous().view(batch_size, num_anchor, regression.shape[-1])
-            reg_preds = regression[pos_targets_batch_ids, pos_mask]
+            reg_preds = regression[pos_mask]
 
             reg_targets = self.encode(anchor[pos_mask], pos_assign_targets)
 
             # bulid obj targets and preds
-            objecteness = objecteness.contiguous().view(batch_size, num_anchor, objecteness.shape[-1])
-            pos_obj_preds = objecteness[pos_targets_batch_ids, pos_mask]
-            neg_obj_preds = objecteness[neg_targets_batch_ids, neg_mask]
+
+            pos_obj_preds = objecteness[pos_mask]
+            neg_obj_preds = objecteness[neg_mask]
 
             pos_obj_targets = torch.ones_like(pos_obj_preds)
             neg_obj_targets = torch.zeros_like(neg_obj_preds)

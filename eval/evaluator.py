@@ -1,4 +1,4 @@
-import config.yolov3_config_voc as cfg
+import config.cfg_example as cfg
 import os
 import shutil
 from eval import voc_eval
@@ -18,7 +18,7 @@ class Evaluator(object):
     def __init__(self, model, visiual=False):
         self.classes = cfg.DATA["CLASSES"]
         self.pred_result_path = os.path.join(PROJECT_PATH, 'data', 'results')
-        self.val_data_path = os.path.join(DATA_PATH, 'VOCdevkit', 'VOC2007_test')
+        self.val_data_path = os.path.join(DATA_PATH, 'VOCdevkit', 'VOC2007')
         self.conf_thresh = cfg.TEST["CONF_THRESH"]
         self.nms_thresh = cfg.TEST["NMS_THRESH"]
         self.val_shape =  cfg.TEST["TEST_IMG_SIZE"]
@@ -31,7 +31,8 @@ class Evaluator(object):
         self.type = next(model.parameters()).dtype
 
     def APs_voc(self, multi_test=False, flip_test=False):
-        img_inds_file = os.path.join(self.val_data_path,  'ImageSets', 'Main', 'test.txt')
+        # img_inds_file = os.path.join(self.val_data_path,  'ImageSets', 'Main', 'test.txt')
+        img_inds_file = os.path.join(self.val_data_path,  'ImageSets', 'Main', 'train.txt')
         with open(img_inds_file, 'r') as f:
             lines = f.readlines()
             img_inds = [line.strip() for line in lines]
@@ -147,6 +148,7 @@ class Evaluator(object):
         # (5)将score低于score_threshold的bbox去掉
         classes = np.argmax(pred_prob, axis=-1)
         scores = pred_conf * pred_prob[np.arange(len(pred_coor)), classes]
+        # scores = pred_conf * 1
         score_mask = scores > self.conf_thresh
 
         mask = np.logical_and(scale_mask, score_mask)

@@ -6,7 +6,7 @@ sys.path.append("..")
 sys.path.append("../utils")
 import torch
 from torch.utils.data import Dataset, DataLoader
-import config.yolov3_config_voc as cfg
+import config.cfg_example as cfg
 import cv2
 import numpy as np
 import random
@@ -34,7 +34,9 @@ class VocDataset(Dataset):
         # get pic and box
         # if item not in self.label:
         img, bboxes = self.__parse_annotation(self.__annotations[item])
-        img = img.transpose(2, 0, 1)  # HWC->CHW
+        img = img.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+        img = np.ascontiguousarray(img)
+
         if self.mix:
             item_mix = random.randint(0, len(self.__annotations)-1)
             img_mix, bboxes_mix = self.__parse_annotation(self.__annotations[item_mix])
@@ -43,13 +45,13 @@ class VocDataset(Dataset):
             img, bboxes = dataAug.Mixup()(img, bboxes, img_mix, bboxes_mix)
         else:
             img, bboxes = dataAug.Mixup(p=2)(img, bboxes)
-        nl = len(bboxes)
-        labels_out = torch.zeros((nl, 7))
+        # nl = len(bboxes)
+        # labels_out = torch.zeros((nl, 6))
         
-        if nl:
-            labels_out[:, :-1] = torch.from_numpy(bboxes)
+        # if nl:
+            # labels_out[:, :] = torch.from_numpy(bboxes)
             # self.label[item] = [torch.from_numpy(img).float(), labels_out]
-        return torch.from_numpy(img).float(), labels_out
+        return torch.from_numpy(img).float(), torch.from_numpy(bboxes)
         # else:
             # return self.label[item][0], self.label[item][1]
         
@@ -60,6 +62,21 @@ class VocDataset(Dataset):
         for i, l in enumerate(label):
             l[:, -1] = i  # add target image index for build_targets()
         return torch.stack(img, 0), torch.cat(label, 0)
+    
+    @staticmethod
+    def collate_fn_batch(batch):
+        imgs, labels = zip(*batch)  # transposed
+        batchsize = len(labels)
+        max_num_labels = max(label.shape[0] for label in labels)
+        
+        if max_num_labels > 0:
+            label_padded = torch.ones((batchsize, max_num_labels, 6)) * -1
+            for idx, label in enumerate(labels):
+                label_padded[idx, :label.shape[0]] = label
+        else:
+            label_padded = torch.ones((batchsize, 1, 6)) * -1
+
+        return torch.stack(imgs, 0), label_padded
 
     def __load_annotations(self, anno_type):
 
@@ -87,9 +104,9 @@ class VocDataset(Dataset):
         assert img is not None, 'File Not Found ' + img_path
         bboxes = np.array([list(map(float, box.split(','))) for box in anno[1:]])
         # augment
-        img, bboxes = dataAug.RandomHorizontalFilp()(np.copy(img), np.copy(bboxes))
-        img, bboxes = dataAug.RandomCrop()(np.copy(img), np.copy(bboxes))
-        img, bboxes = dataAug.RandomAffine()(np.copy(img), np.copy(bboxes))
+        # img, bboxes = dataAug.RandomHorizontalFilp()(np.copy(img), np.copy(bboxes))
+        # img, bboxes = dataAug.RandomCrop()(np.copy(img), np.copy(bboxes))
+        # img, bboxes = dataAug.RandomAffine()(np.copy(img), np.copy(bboxes))
         img, bboxes = dataAug.Resize((self.img_size, self.img_size), True)(np.copy(img), np.copy(bboxes))
         
         return img, bboxes
