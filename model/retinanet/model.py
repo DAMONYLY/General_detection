@@ -177,20 +177,20 @@ class ResNet(nn.Module):
         else:
             raise ValueError(f"Block type {block} not understood")
 
-        self.fpn = PyramidFeatures(fpn_sizes[0], fpn_sizes[1], fpn_sizes[2])
+        # self.fpn = PyramidFeatures(fpn_sizes[0], fpn_sizes[1], fpn_sizes[2])
 
-        self.regressionModel = RegressionModel(256, num_anchors=3)
-        self.classificationModel = ClassificationModel(256, num_anchors= 3, num_classes=num_classes)
+        # self.regressionModel = RegressionModel(256, num_anchors=3)
+        # self.classificationModel = ClassificationModel(256, num_anchors= 3, num_classes=num_classes)
 
-        self.anchors = Anchors()
+        # self.anchors = Anchors()
 
-        self.regressBoxes = BBoxTransform()
+        # self.regressBoxes = BBoxTransform()
 
-        self.clipBoxes = ClipBoxes()
+        # self.clipBoxes = ClipBoxes()
 
-        self.focalLoss = losses.FocalLoss()
-        self.label_assign = label_assign(1)
-        self.loss_GD = Loss(1,1)
+        # self.focalLoss = losses.FocalLoss()
+        # self.label_assign = label_assign(1)
+        # self.loss_GD = Loss(1,1)
 
         # for m in self.modules():
         #     if isinstance(m, nn.Conv2d):
@@ -246,8 +246,8 @@ class ResNet(nn.Module):
         x2 = self.layer2(x1)
         x3 = self.layer3(x2)
         x4 = self.layer4(x3)
-
-        features = self.fpn([x2, x3, x4])
+        return [x4,x3,x2]
+        # features = self.fpn([x2, x3, x4])
 
         # regression = torch.cat([self.regressionModel(feature) for feature in features], dim=1)
 

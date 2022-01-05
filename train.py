@@ -73,9 +73,9 @@ class Trainer(object):
 
         
         #------------7. resume training --------------------------------------
-        if args.weight_path:
-            print('Start resume trainning from {}'.format(args.weight_path))
-            self.__load_model_weights(self.weight_path)
+        if args.resume_path:
+            print('Start resume trainning from {}'.format(args.resume_path))
+            self.__load_model_weights(self.resume_path)
 
         self.scheduler = cosine_lr_scheduler.CosineDecayLR(self.optimizer,
                                                           T_max=self.epochs*len(self.train_dataloader),
@@ -89,8 +89,8 @@ class Trainer(object):
             self.DP = True
 
 
-    def __load_model_weights(self, weight_path):
-        chkpt = torch.load(weight_path, map_location=self.device)
+    def __load_model_weights(self, resume_path):
+        chkpt = torch.load(resume_path, map_location=self.device)
         self.model.load_state_dict(chkpt['model'])
 
         self.start_epoch = chkpt['epoch'] + 1
@@ -170,7 +170,7 @@ class Trainer(object):
                 end_time = time.time()
                 iter_time += end_time - start_time
                 start_time = time.time()
-                break
+                # break
             self.scheduler.step(mloss[2])
             mAP = 0
             if self.save_path:
@@ -178,7 +178,7 @@ class Trainer(object):
                     os.makedirs(self.save_path)
                 self.__save_model_weights(self.save_path, epoch, mAP)
                 print('best mAP : %g' % (self.best_mAP))
-            if epoch >= 0:
+            if epoch >= 2:
                 print('*'*20+"Validate"+'*'*20)
                 with torch.no_grad():
                     if self.dataset == 'coco':
@@ -189,15 +189,16 @@ class Trainer(object):
 if __name__ == "__main__":
 
     import sys 
-    # sys.argv = ['train.py', '--b', '40', '--device', '6', '--save_path', './results/03', '--weight_path', './results/03/backup_epoch0.pt' ]
+    # sys.argv = ['train.py', '--b', '20', '--device', '7', '--weight_path', 'darknet53_448.weights' ]
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weight_path', type=str, default='', help='weight file path')
+    parser.add_argument('--weight_path', type=str, default='', help='weight file path to pretrain')
     parser.add_argument('--dataset', type=str, default='coco', help='dataset type')
     parser.add_argument('--dataset_path', type=str, default='./dataset/voc2coco', help='path of dataset')
+    parser.add_argument('--resume_path', type=str, default='', help='path of model file to resume')
     parser.add_argument('--save_path', type=str, default='', help='save model path')
     parser.add_argument('--pre_train', type=bool, default=True, help='whether to use pre-trained models')
     parser.add_argument('--batch_size', '--b', type=int, default=40,  help='mini batch number')
-    parser.add_argument('--device', default='6', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='7', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
     opt = parser.parse_args()
     # update_opt_to_cfg(opt, cfg)

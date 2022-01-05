@@ -5,11 +5,11 @@ import torch.nn as nn
 import math
 from model.anchor.retina_anchor import Retina_Anchors
 from model.anchor.build_anchor import Anchors
-from model.backbones.build_backbone import build_backbone
+# from model.backbones.build_backbone import build_backbone
+from .backbones import build_backbone
 from model.head.build_head import build_head
 from model.necks.build_fpn import build_fpn
 from model.post_processing.yolo_decoder import yolo_decode, clip_bboxes, nms_boxes
-from model.retinanet import model
 
 
 class General_detector(nn.Module):
@@ -29,10 +29,7 @@ class General_detector(nn.Module):
         self.anchor = Anchors()
         self.retina_anchor = Retina_Anchors()
 
-        # for layer in self.modules():
-        #     if isinstance(layer, nn.BatchNorm2d):
-        #         layer.eval()
-        self.retinanet = model.resnet18(num_classes=20, pretrained=True)
+        # self.retinanet = model.resnet18(num_classes=20, pretrained=True)
         
     def forward(self, images, type = 'train'):
         """
@@ -46,13 +43,10 @@ class General_detector(nn.Module):
 
         self.batch_size, _, self.image_w, self.image_h = images.shape
 
-        # large, medium, small = self.backbone(images) # {32: feature, 16: feature, 8: feature}
+        features = self.backbone(images) 
 
-        # features = [large, medium, small]
-        # features = self.fpn(features) # {small: feature, medium: feature, large: feature}
-
-        # proposals_reg, proposals_cls = self.retinanet(images)
-        features = self.retinanet(images)
+        features = self.fpn(features) 
+        
         proposals_reg = torch.cat([self.reg_head(feature) for feature in features], dim=1)
         proposals_cls = torch.cat([self.cls_head(feature) for feature in features], dim=1)
 

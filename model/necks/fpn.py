@@ -28,7 +28,7 @@ class FPN(nn.Module):
 
 
         # upsample C5 to get P5 from the FPN paper
-        self.P5_1 = nn.Conv2d(channel_in[0], channel_out, kernel_size=1, stride=1, padding=0)
+        self.P5_1 = nn.Conv2d(channel_in[2], channel_out, kernel_size=1, stride=1, padding=0)
         self.P5_upsampled = nn.Upsample(scale_factor=2, mode='nearest')
         self.P5_2 = nn.Conv2d(channel_out, channel_out, kernel_size=3, stride=1, padding=1)
 
@@ -38,30 +38,22 @@ class FPN(nn.Module):
         self.P4_2 = nn.Conv2d(channel_out, channel_out, kernel_size=3, stride=1, padding=1)
 
         # add P4 elementwise to C3
-        self.P3_1 = nn.Conv2d(channel_in[2], channel_out, kernel_size=1, stride=1, padding=0)
+        self.P3_1 = nn.Conv2d(channel_in[0], channel_out, kernel_size=1, stride=1, padding=0)
         self.P3_2 = nn.Conv2d(channel_out, channel_out, kernel_size=3, stride=1, padding=1)
 
         # "P6 is obtained via a 3x3 stride-2 conv on C5"
-        self.P6 = nn.Conv2d(channel_in[0], channel_out, kernel_size=3, stride=2, padding=1)
+        self.P6 = nn.Conv2d(channel_in[2], channel_out, kernel_size=3, stride=2, padding=1)
 
         # "P7 is computed by applying ReLU followed by a 3x3 stride-2 conv on P6"
         self.P7_1 = nn.ReLU()
         self.P7_2 = nn.Conv2d(channel_out, channel_out, kernel_size=3, stride=2, padding=1)
-        # for m in self.modules():
-        #     if isinstance(m, nn.Conv2d):
-        #         n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-        #         m.weight.data.normal_(0, math.sqrt(2. / n))
-        #     elif isinstance(m, nn.BatchNorm2d):
-        #         m.weight.data.fill_(1)
-        #         m.bias.data.zero_()
-        # self.init_weights()
 
     def init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 xavier_init(m, distribution="uniform")
     def forward(self, inputs):
-        C5, C4, C3 = inputs # large, medium, small
+        C3, C4, C5 = inputs # large, medium, small
 
         P5_x = self.P5_1(C5)
         P5_upsampled_x = self.P5_upsampled(P5_x)
