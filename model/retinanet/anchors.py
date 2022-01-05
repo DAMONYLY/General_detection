@@ -3,9 +3,9 @@ import torch
 import torch.nn as nn
 
 
-class Retina_Anchors(nn.Module):
+class Anchors(nn.Module):
     def __init__(self, pyramid_levels=None, strides=None, sizes=None, ratios=None, scales=None):
-        super(Retina_Anchors, self).__init__()
+        super(Anchors, self).__init__()
 
         if pyramid_levels is None:
             self.pyramid_levels = [3, 4, 5, 6, 7]
@@ -16,7 +16,7 @@ class Retina_Anchors(nn.Module):
         if ratios is None:
             self.ratios = np.array([0.5, 1, 2])
         if scales is None:
-            # self.scales = np.array([2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)])
+            self.scales = np.array([2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)])
             self.scales = np.array([2 ** 0])
 
     def forward(self, image):
@@ -128,5 +128,4 @@ def shift(shape, stride, anchors):
     all_anchors = all_anchors.reshape((K * A, 4))
 
     return all_anchors
-
 

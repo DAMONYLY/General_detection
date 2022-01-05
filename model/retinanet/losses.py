@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+
 def iou_xyxy_torch(boxes1, boxes2):
     """
     [N, 4] with [M, 4] return [N, M]
@@ -35,6 +36,7 @@ class Focal_Loss(nn.Module):
         loss *= self.__alpha * torch.pow(focal_weight, self.__gamma)
 
         return loss
+
 def calc_iou(a, b):
     area = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
 
@@ -118,10 +120,10 @@ class FocalLoss(nn.Module):
                 reg_targets = self.encode(anchor[pos_mask], assigned_annotations[pos_mask])
                 reg_preds = regression[pos_mask]
 
-                # if torch.cuda.is_available():
-                #     reg_targets = reg_targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).cuda()
-                # else:
-                #     reg_targets = reg_targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]])
+                if torch.cuda.is_available():
+                    reg_targets = reg_targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).cuda()
+                else:
+                    reg_targets = reg_targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]])
 
                 regression_loss = l_smooth_loss(reg_preds, reg_targets)
 
@@ -132,10 +134,7 @@ class FocalLoss(nn.Module):
                 else:
                     regression_losses.append(torch.tensor(0).float())
 
-        loss_cls = torch.stack(classification_losses).mean(dim=0, keepdim=True)
-        loss_reg = torch.stack(regression_losses).mean(dim=0, keepdim=True)
-        loss = loss_reg + loss_cls
-        return loss, loss_reg, loss_cls
+        return torch.stack(classification_losses).mean(dim=0, keepdim=True), torch.stack(regression_losses).mean(dim=0, keepdim=True)
 
     def encode(self, anchor, gt_bbox, eps = 1e-6):
         
@@ -163,5 +162,4 @@ class FocalLoss(nn.Module):
             (targets_dx, targets_dy, targets_dw, targets_dh), dim=-1
         )
         return reg_targets
-
 

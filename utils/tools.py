@@ -5,7 +5,7 @@ import torch
 import numpy as np
 import cv2
 import random
-import config.yolov3_config_voc as cfg
+import config.cfg_example as cfg
 import os
 
 
