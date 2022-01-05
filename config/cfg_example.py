@@ -12,7 +12,7 @@ DATA = {"CLASSES":['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
 MODEL = {
     "name": 'General', # [YOLO, General]
     "backbone": 'Resnet', # [Darknet53, Resnet]
-    'depth': 50, # depth of ResNet model [18, 34, 50, 101, 152]
+    'depth': 18, # depth of ResNet model [18, 34, 50, 101, 152]
     "fpn": 'fpn',
     "out_stride": [8, 16, 32], # TODO: 用于输出多少x的特征图用来检测
     'head': 'normal',
@@ -34,8 +34,8 @@ TRAIN = {
          "EPOCHS":154,
          "NUMBER_WORKERS":4,
          "MOMENTUM":0.9,
-         "WEIGHT_DECAY":0.0005,
-         "LR_INIT":1e-3,
+         "WEIGHT_DECAY":0.0001,
+         "LR_INIT":1e-5,
          "LR_END":1e-6,
          "WARMUP_EPOCHS":0  # or None
          }

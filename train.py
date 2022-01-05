@@ -17,7 +17,7 @@ from tensorboardX import SummaryWriter
 # import config.yolov3_config_voc as cfg
 import config.cfg_example as cfg
 from utils import cosine_lr_scheduler, model_info
-from utils.coco_dataloader import CocoDataset, Resizer, Augmenter, Normalizer, collater
+from utils.coco_dataloader import AspectRatioBasedSampler, CocoDataset, Resizer, Augmenter, Normalizer, collater
 from eval import coco_eval
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"]='1'
@@ -40,27 +40,18 @@ class Trainer(object):
         self.dataset = args.dataset
         #----------- 3. get train dataset ------------------------------------------
         if self.dataset == 'coco':
+            
             self.train_dataset = CocoDataset(args.dataset_path,
                             set_name='train2017',
                             transform=transforms.Compose([Normalizer(), Augmenter(), Resizer()]))
             self.val_dataset = CocoDataset(args.dataset_path,
                                     set_name='val2017',
                                     transform=transforms.Compose([Normalizer(), Resizer()]))
+            sampler = AspectRatioBasedSampler(self.train_dataset, batch_size=args.batch_size, drop_last=False)
             self.train_dataloader = DataLoader(self.train_dataset,
-                                            batch_size=args.batch_size,
                                             num_workers=cfg.TRAIN["NUMBER_WORKERS"],
-                                            shuffle=True,
+                                            batch_sampler=sampler,
                                             collate_fn=collater
-                                            )
-            # print('1')
-        elif self.dataset == 'voc':
-            self.train_dataset = VocDataset(anno_file_type="train", img_size=cfg.TRAIN["TRAIN_IMG_SIZE"])
-            # train_sampler = torch.utils.data.distributed.DistributedSampler(self.train_dataset)
-            self.train_dataloader = DataLoader(self.train_dataset,
-                                            batch_size=args.batch_size,
-                                            num_workers=cfg.TRAIN["NUMBER_WORKERS"],
-                                            shuffle=True,
-                                            collate_fn=VocDataset.collate_fn_batch
                                             )
 
         #----------- 4. build model -----------------------------------------------
@@ -77,6 +68,9 @@ class Trainer(object):
         #------------6. init optimizer, criterion, scheduler, weights-----------------------
         self.optimizer = optim.SGD(self.model.parameters(), lr=cfg.TRAIN["LR_INIT"],
                                    momentum=cfg.TRAIN["MOMENTUM"], weight_decay=cfg.TRAIN["WEIGHT_DECAY"])
+        self.optimizer = optim.Adam(self.model.parameters(), lr=cfg.TRAIN["LR_INIT"])
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, verbose=True)
+
         
         #------------7. resume training --------------------------------------
         if args.weight_path:
@@ -96,7 +90,6 @@ class Trainer(object):
 
 
     def __load_model_weights(self, weight_path):
-        # last_weight = os.path.join(weight_path, "last.pt")
         chkpt = torch.load(weight_path, map_location=self.device)
         self.model.load_state_dict(chkpt['model'])
 
@@ -112,7 +105,7 @@ class Trainer(object):
         if mAP > self.best_mAP:
             self.best_mAP = mAP
         best_weight = os.path.join(path, "best.pt")
-        last_weight = os.path.join(path, "last.pt")
+        last_weight = os.path.join(path, 'backup_epoch%g.pt'%epoch)
         if self.DP:
             model = self.model.module
         else:
@@ -125,91 +118,86 @@ class Trainer(object):
 
         if self.best_mAP == mAP:
             torch.save(chkpt['model'], best_weight)
-
-        if epoch > 0 and epoch % 10 == 0:
-            torch.save(chkpt, os.path.join(path, 'backup_epoch%g.pt'%epoch))
         del chkpt
 
     def train(self):
-        # print(self.model)
-        
+
         print("Train datasets number is : {}".format(len(self.train_dataset)))
         all_iter = (self.epochs - self.start_epoch) * len(self.train_dataloader)
         for epoch in range(self.start_epoch, self.epochs):
             
             self.model.train()
-            mloss = torch.zeros(4)
+            mloss = torch.zeros(3)
             iter_time = 0
             start_time = time.time()
-            for i, (imgs, bboxes)  in enumerate(self.train_dataloader):
-            # for i, data  in enumerate(self.train_dataloader):
+            # for i, (imgs, bboxes)  in enumerate(self.train_dataloader):
+            for i, data in enumerate(self.train_dataloader):
                 # torch.cuda.synchronize()
                 # self.scheduler.step(len(self.train_dataloader)*epoch + i)
-                # imgs = data['img']
-                # bboxes = data['annot']
+                self.optimizer.zero_grad()
+                imgs = data['img']
+                bboxes = data['annot']
                 imgs = imgs.to(self.device)
                 bboxes = bboxes.to(self.device)
 
                 features = self.model(imgs)
-                loss, loss_reg, loss_obj, loss_cls = self.loss_calculater(imgs, features, bboxes)
+                loss, loss_reg, loss_cls = self.loss_calculater(imgs, features, bboxes)
 
-                self.optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
                 self.optimizer.step()
 
                 # Update running mean of tracked metrics
-                loss_items = torch.tensor([loss_reg.item(), loss_obj.item(), loss_cls.item(), loss.item()])
+                loss_items = torch.tensor([loss_reg.item(), loss_cls.item(), loss.item()])
                 mloss = (mloss * i + loss_items) / (i + 1)
 
                 print_fre = 10
+                print_average = False
                 # Print batch results
                 if i != 0 and i% print_fre==0:
                     iter_time = iter_time/10
                     eta_seconds = (all_iter - (epoch - self.start_epoch) * len(self.train_dataloader) - (i - 1)) * iter_time
                     eta_str = "ETA: {}".format(datetime.timedelta(seconds=int(eta_seconds)))
-                    line = 'Epoch:[{}|{}], Batch:[{}|{}], iter_time:{:.2f}s, loss_all:{:.2f}, loss_reg:{:.2f}, loss_obj:{:.2f}, loss_cls:{:.2f}, lr:{:.2g}'.format(
-                        epoch, self.epochs - 1, i, len(self.train_dataloader) - 1, iter_time, mloss[3], mloss[0],mloss[1], mloss[2], self.optimizer.param_groups[0]['lr'])
+                    if print_average:
+                        line = 'Epoch:[{}|{}], Batch:[{}|{}], iter_time:{:.2f}s, loss_all:{:.2f}, loss_reg:{:.2f}, loss_cls:{:.2f}, lr:{:.2g}'.format(
+                            epoch, self.epochs - 1, i, len(self.train_dataloader) - 1, iter_time, mloss[2], mloss[0], mloss[1], self.optimizer.param_groups[0]['lr'])
+                    else:
+                        line = 'Epoch:[{}|{}], Batch:[{}|{}], iter_time:{:.2f}s, loss_all:{:.2f}, loss_reg:{:.2f}, loss_cls:{:.2f}, lr:{:.2g}'.format(
+                            epoch, self.epochs - 1, i, len(self.train_dataloader) - 1, iter_time, loss_items[2], loss_items[0], loss_items[1], self.optimizer.param_groups[0]['lr'])
                     print(line +', ' + eta_str)
                     iter_time = 0
-
-                # multi-sclae training (320-608 pixels) every 10 batches
-                if self.multi_scale_train and (i+1) % print_fre == 0:
-                    self.train_dataset.img_size = random.choice(range(10, 20)) * 32
-                    print("multi_scale_img_size : {}".format(self.train_dataset.img_size))
 
                 end_time = time.time()
                 iter_time += end_time - start_time
                 start_time = time.time()
                 break
+            self.scheduler.step(mloss[2])
             mAP = 0
-            if epoch >= 20:
-                print('*'*20+"Validate"+'*'*20)
-                with torch.no_grad():
-                    if self.dataset == 'coco':
-                        coco_eval.evaluate_coco(self.val_dataset, self.model)
-                    elif self.dataset == 'voc':
-                        APs = Evaluator(self.model, True).APs_voc()
-                        for i in APs:
-                            print("{} --> mAP : {}".format(i, APs[i]))
-                            mAP += APs[i]
-                        mAP = mAP / self.train_dataset.num_classes
-                        print('mAP:%g'%(mAP))
             if self.save_path:
                 if not os.path.exists(self.save_path):
                     os.makedirs(self.save_path)
                 self.__save_model_weights(self.save_path, epoch, mAP)
                 print('best mAP : %g' % (self.best_mAP))
+            if epoch >= 0:
+                print('*'*20+"Validate"+'*'*20)
+                with torch.no_grad():
+                    if self.dataset == 'coco':
+                        coco_eval.evaluate_coco(self.val_dataset, self.model)
+
 
 
 if __name__ == "__main__":
+
+    import sys 
+    # sys.argv = ['train.py', '--b', '40', '--device', '6', '--save_path', './results/03', '--weight_path', './results/03/backup_epoch0.pt' ]
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weight_path', type=str, default='results/06/last.pt', help='weight file path')
-    parser.add_argument('--dataset', type=str, default='voc', help='dataset type')
+    parser.add_argument('--weight_path', type=str, default='', help='weight file path')
+    parser.add_argument('--dataset', type=str, default='coco', help='dataset type')
     parser.add_argument('--dataset_path', type=str, default='./dataset/voc2coco', help='path of dataset')
-    parser.add_argument('--save_path', type=str, default='./results', help='save model path')
+    parser.add_argument('--save_path', type=str, default='', help='save model path')
     parser.add_argument('--pre_train', type=bool, default=True, help='whether to use pre-trained models')
-    parser.add_argument('--batch_size', '--b', type=int, default=10,  help='mini batch number')
-    parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--batch_size', '--b', type=int, default=40,  help='mini batch number')
+    parser.add_argument('--device', default='6', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
     opt = parser.parse_args()
     # update_opt_to_cfg(opt, cfg)

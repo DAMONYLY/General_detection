@@ -80,7 +80,7 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers):
+    def __init__(self, block, layers, depth, pretrain=True):
         self.inplanes = 64
         super(ResNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
@@ -101,16 +101,8 @@ class ResNet(nn.Module):
             self.fpn_size = [self.layer4[layers[3]-1].conv3.out_channels,
                              self.layer3[layers[2]-1].conv3.out_channels,
                              self.layer2[layers[1]-1].conv3.out_channels]
-        # for m in self.modules():
-        #     if isinstance(m, nn.Conv2d):
-        #         n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-        #         m.weight.data.normal_(0, math.sqrt(2. / n))
-        #     elif isinstance(m, nn.BatchNorm2d):
-        #         m.weight.data.fill_(1)
-        #         m.bias.data.zero_()
-
-
-        # self.freeze_bn()
+        self.depth = depth
+        self.init_weights(pretrain=pretrain)
 
     def _make_layer(self, block, planes, blocks, stride=1):
 
@@ -130,11 +122,6 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def freeze_bn(self):
-        '''Freeze BatchNorm layers.'''
-        for layer in self.modules():
-            if isinstance(layer, nn.BatchNorm2d):
-                layer.eval()
 
     def forward(self, img_batch):
 
@@ -153,16 +140,34 @@ class ResNet(nn.Module):
 
         return [x4, x3, x2]  # [large, medium, small]
 
-
+    def init_weights(self, pretrain=True):
+        if pretrain:
+            url = model_urls["resnet{}".format(self.depth)]
+            pretrained_state_dict = model_zoo.load_url(url, model_dir='.')
+            print("=> loading pretrained model {}".format(url))
+            self.load_state_dict(pretrained_state_dict, strict=False)
+        else:
+            for m in self.modules():
+                if self.activation == "LeakyReLU":
+                    nonlinearity = "leaky_relu"
+                else:
+                    nonlinearity = "relu"
+                if isinstance(m, nn.Conv2d):
+                    nn.init.kaiming_normal_(
+                        m.weight, mode="fan_out", nonlinearity=nonlinearity
+                    )
+                elif isinstance(m, nn.BatchNorm2d):
+                    m.weight.data.fill_(1)
+                    m.bias.data.zero_()
 
 def resnet18(pretrained=False, **kwargs):
     """Constructs a ResNet-18 model.
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet18'], model_dir='.'), strict=False)
+    model = ResNet(BasicBlock, [2, 2, 2, 2], 18, **kwargs)
+    # if pretrained:
+        # model.load_state_dict(model_zoo.load_url(model_urls['resnet18'], model_dir='.'), strict=False)
     return model
 
 
@@ -171,9 +176,9 @@ def resnet34(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(BasicBlock, [3, 4, 6, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet34'], model_dir='.'), strict=False)
+    model = ResNet(BasicBlock, [3, 4, 6, 3], 34, **kwargs)
+    # if pretrained:
+        # model.load_state_dict(model_zoo.load_url(model_urls['resnet34'], model_dir='.'), strict=False)
     return model
 
 
@@ -182,9 +187,9 @@ def resnet50(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(Bottleneck, [3, 4, 6, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet50'], model_dir='.'), strict=False)
+    model = ResNet(Bottleneck, [3, 4, 6, 3], 50, **kwargs)
+    # if pretrained:
+    #     model.load_state_dict(model_zoo.load_url(model_urls['resnet50'], model_dir='.'), strict=False)
     return model
 
 def resnet101(pretrained=False, **kwargs):
@@ -192,9 +197,9 @@ def resnet101(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(Bottleneck, [3, 4, 23, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet101'], model_dir='.'), strict=False)
+    model = ResNet(Bottleneck, [3, 4, 23, 3], 101, **kwargs)
+    # if pretrained:
+        # model.load_state_dict(model_zoo.load_url(model_urls['resnet101'], model_dir='.'), strict=False)
     return model
 
 
@@ -203,7 +208,7 @@ def resnet152(pretrained=False, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = ResNet(Bottleneck, [3, 8, 36, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet152'], model_dir='.'), strict=False)
+    model = ResNet(Bottleneck, [3, 8, 36, 3], 152, **kwargs)
+    # if pretrained:
+        # model.load_state_dict(model_zoo.load_url(model_urls['resnet152'], model_dir='.'), strict=False)
     return model

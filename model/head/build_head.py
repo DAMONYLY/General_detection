@@ -8,6 +8,8 @@ head 首先分共享不共享两种形式
 无置信度头，则放在分类头一起
 '''
 import torch.nn as nn
+from model.head.cls_head import ClassificationModel
+from model.head.reg_head import RegressionModel
 from model.head.head import Head
 from model.head.yolo_head import Yolo_head
 
@@ -15,10 +17,13 @@ def build_head(head, channel, num_anchor):
     if head == 'yolo_head':
         return Yolo_head()
     elif head == 'normal':
-        reg_channel = 5
+        reg_channel = 4
         cls_channel = 20
-        return Head(channel_in=channel, channel_mid= channel, 
-                    channel_out=[reg_channel, cls_channel], num_anchor=num_anchor)
+        regressionModel = RegressionModel(channel, num_anchor)
+        classificationModel = ClassificationModel(channel, num_anchor, num_classes=cls_channel)
+        return regressionModel, classificationModel
+        # return Head(channel_in=channel, channel_mid= channel, 
+        #             channel_out=[reg_channel, cls_channel], num_anchor=num_anchor)
     else:
         raise NotImplementedError
     

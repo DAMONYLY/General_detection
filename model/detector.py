@@ -2,11 +2,14 @@
 "2021年11月24日20:31:54"
 import torch
 import torch.nn as nn
+import math
+from model.anchor.retina_anchor import Retina_Anchors
 from model.anchor.build_anchor import Anchors
 from model.backbones.build_backbone import build_backbone
 from model.head.build_head import build_head
 from model.necks.build_fpn import build_fpn
-from model.post_processing.yolo_decoder import yolo_decode, clip_bboxes
+from model.post_processing.yolo_decoder import yolo_decode, clip_bboxes, nms_boxes
+from model.retinanet import model
 
 
 class General_detector(nn.Module):
@@ -21,10 +24,15 @@ class General_detector(nn.Module):
         
         self.fpn = build_fpn(cfg.MODEL['fpn'], cfg.MODEL['out_stride'], channel_in = self.backbone.fpn_size)
 
-        self.head = build_head(cfg.MODEL['head'], self.channel, cfg.MODEL['ANCHORS_PER_SCLAE'])
+        self.reg_head, self.cls_head = build_head(cfg.MODEL['head'], self.channel, self.num_anchors)
 
         self.anchor = Anchors()
+        self.retina_anchor = Retina_Anchors()
 
+        # for layer in self.modules():
+        #     if isinstance(layer, nn.BatchNorm2d):
+        #         layer.eval()
+        self.retinanet = model.resnet18(num_classes=20, pretrained=True)
         
     def forward(self, images, type = 'train'):
         """
@@ -38,27 +46,28 @@ class General_detector(nn.Module):
 
         self.batch_size, _, self.image_w, self.image_h = images.shape
 
-        large, medium, small = self.backbone(images) # {32: feature, 16: feature, 8: feature}
+        # large, medium, small = self.backbone(images) # {32: feature, 16: feature, 8: feature}
 
-        features = [large, medium, small]
-        features = self.fpn(features) # {large: feature, medium: feature, small: feature}
+        # features = [large, medium, small]
+        # features = self.fpn(features) # {small: feature, medium: feature, large: feature}
 
-        proposals_reg, proposals_cls = self.head(features) # {large: feature, medium: feature, small: feature}
-        
-        proposals_reg = self.flatten_anchors(proposals_reg, 5)
-        proposals_cls = self.flatten_anchors(proposals_cls, 20)
+        # proposals_reg, proposals_cls = self.retinanet(images)
+        features = self.retinanet(images)
+        proposals_reg = torch.cat([self.reg_head(feature) for feature in features], dim=1)
+        proposals_cls = torch.cat([self.cls_head(feature) for feature in features], dim=1)
+
         
         
         if type == 'test':
-            anchors = self.anchor(images)
-            output = []
-            for id, item in enumerate(proposals_reg):
-                feature = torch.cat((proposals_reg[id], proposals_cls[id]), dim=-1)
-                output.append(yolo_decode(feature, anchors[id]))
-            output = torch.cat(output, dim=0)
+            # anchors = self.anchor(images)
+            anchors = self.retina_anchor(images).squeeze()
+            p_reg = yolo_decode(proposals_reg, anchors)
+            p_cls = proposals_cls.squeeze(0)
+            
             # 2. 将超出图片边界的框截掉
-            output = clip_bboxes(output, images)
-            return output
+            p_reg = clip_bboxes(p_reg, images)
+            scores, labels, boxes = nms_boxes(p_reg, p_cls)
+            return [scores, labels, boxes]
         return [proposals_reg, proposals_cls]
             
 
