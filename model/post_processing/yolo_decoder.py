@@ -12,7 +12,7 @@ def yolo_decode(feature, anchor):
     output:
         feature (torch.tensor): after decode. [all_num_anchors, reg], in xyxy form.
     """
-    batch_size, num_anchor, out_dim = feature.shape
+    num_anchor, out_dim = feature.shape
     dtype = feature.dtype
     device = feature.device
     # anchor = anchor.unsqueeze(0).repeat(batch_size, 1, 1, 1).type(dtype).to(device)

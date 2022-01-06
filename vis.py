@@ -1,65 +1,62 @@
 import numpy as np
-import torchvision
 import time
-import os
-import copy
-import pdb
 import time
 import argparse
-
-import sys
+import os
 import cv2
 
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, models, transforms
 
-from utils.coco_dataloader import CocoDataset, CSVDataset, collater, Resizer, AspectRatioBasedSampler, Augmenter, \
-	UnNormalizer, Normalizer
+from utils.coco_dataloader import CocoDataset, CSVDataset, collater, Resizer, AspectRatioBasedSampler, Augmenter, UnNormalizer, Normalizer
+from model.build_model import build
+import utils.gpu as gpu
+from utils.model_info import get_model_info
+import config.cfg_example as cfg
 
-
-assert torch.__version__.split('.')[0] == '1'
-
-print('CUDA available: {}'.format(torch.cuda.is_available()))
 
 
 def main(args=None):
-	parser = argparse.ArgumentParser(description='Simple training script for training a RetinaNet network.')
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--dataset', type=str, default='coco', help='dataset type')
+	parser.add_argument('--dataset_path', type=str, default='./dataset/voc2coco', help='path of dataset')
+	parser.add_argument('--resume_path', type=str, default='', help='path of model file to resume')
+	parser.add_argument('--save_path', type=str, default='', help='save pic path')
+	parser.add_argument('--device', default='7', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+	parser.add_argument('--num_pic', type=int, default=100, help='max numbers of saving pic')
 
-	parser.add_argument('--dataset', help='Dataset type, must be one of csv or coco.')
-	parser.add_argument('--coco_path', help='Path to COCO directory')
-	parser.add_argument('--save_path', default='./results/image',help='Path to COCO directory')
-	parser.add_argument('--csv_classes', help='Path to file containing class list (see readme)')
-	parser.add_argument('--csv_val', help='Path to file containing validation annotations (optional, see readme)')
 
-	parser.add_argument('--model', help='Path to model (.pt) file.')
+	args = parser.parse_args()
 
-	parser = parser.parse_args(args)
+	#  -------------- 1. get GPU -----------------------
+	device = gpu.select_device(args.device)
 
-	if parser.dataset == 'coco':
-		dataset_val = CocoDataset(parser.coco_path, set_name='train2017', transform=transforms.Compose([Normalizer(), Resizer()]))
-	elif parser.dataset == 'csv':
-		dataset_val = CSVDataset(train_file=parser.csv_train, class_list=parser.csv_classes, transform=transforms.Compose([Normalizer(), Resizer()]))
-	else:
-		raise ValueError('Dataset type not understood (must be csv or coco), exiting.')
+	#---------------- 2. build model -----------------------------------------------
+	model = build(cfg).to(device)
+	model_info = get_model_info(model, cfg.TEST['TEST_IMG_SIZE'])
+	print("Model Summary: {}".format(model_info))
 
+	#---------------- 3. load resume file --------------------------------------
+	if args.resume_path:
+		print('Start load file from {}'.format(args.resume_path))
+		chkpt = torch.load(args.resume_path, map_location=device)
+		model.load_state_dict(chkpt['model'])
+		del chkpt
+
+	# --------------- 4. DP mode ---------------------------------------
+	if device and torch.cuda.device_count() > 1:
+		model = torch.nn.DataParallel(model)
+		model = model.to(device)
+		DP = True
+	# --------------- 5 Get vla datasets ---------------------------
+	if args.dataset == 'coco':
+		dataset_val = CocoDataset(args.dataset_path, set_name='val2017', transform=transforms.Compose([Normalizer(), Resizer()]))
 	sampler_val = AspectRatioBasedSampler(dataset_val, batch_size=1, drop_last=False)
 	dataloader_val = DataLoader(dataset_val, num_workers=1, collate_fn=collater, batch_sampler=sampler_val)
 
-	retinanet = torch.load(parser.model)
-
-	use_gpu = True
-
-	if use_gpu:
-		if torch.cuda.is_available():
-			retinanet = retinanet.cuda()
-
-	if torch.cuda.is_available():
-		retinanet = torch.nn.DataParallel(retinanet).cuda()
-	else:
-		retinanet = torch.nn.DataParallel(retinanet)
-
-	retinanet.eval()
+	# --------------- 5 Start inference ----------------
+	model.eval()
 
 	unnormalize = UnNormalizer()
 
@@ -70,15 +67,21 @@ def main(args=None):
 		cv2.putText(image, caption, (b[0], b[1] - 10), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 1)
 
 	for idx, data in enumerate(dataloader_val):
-
+		if idx == args.num_pic:
+			break
 		with torch.no_grad():
 			st = time.time()
-			if torch.cuda.is_available():
-				scores, classification, transformed_anchors = retinanet(data['img'].cuda().float())
-			else:
-				scores, classification, transformed_anchors = retinanet(data['img'].float())
+			transformed_anchors, scores, labels = model(data['img'].to(device), 'test')
 			print('Elapsed time: {}'.format(time.time()-st))
-			idxs = np.where(scores.cpu()>0.5)
+			if isinstance(scores, list):
+				scores = scores[0]
+				labels = labels[0]
+				transformed_anchors = transformed_anchors[0]
+			scores = scores.cpu()
+			labels = labels.cpu()
+			transformed_anchors  = transformed_anchors.cpu()
+
+			idxs = np.where(scores>0.5)
 			img = np.array(255 * unnormalize(data['img'][0, :, :, :])).copy()
 
 			img[img<0] = 0
@@ -94,22 +97,22 @@ def main(args=None):
 				y1 = int(bbox[1])
 				x2 = int(bbox[2])
 				y2 = int(bbox[3])
-				label_name = dataset_val.labels[int(classification[idxs[0][j]])]
+				label_name = dataset_val.labels[int(labels[idxs[0][j]])]
 				draw_caption(img, (x1, y1, x2, y2), label_name)
 
 				cv2.rectangle(img, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
 				print(label_name)
 
-			# cv2.imshow('img', img)
-			# cv2.waitKey(0)
-			path = os.path.join(parser.save_path, "{}.jpg".format(idx))
-			cv2.imwrite(path, img)
-			print("saved images : {}".format(path))
+			path = os.path.join(args.save_path, 'pic/')
+			if not os.path.exists(path):
+				os.mkdir(path)
+			cv2.imwrite(os.path.join(path, "{}.jpg".format(idx)), img)
+			print("Num: {}, saved images : {}".format(idx + 1, path))
+
 
 
 if __name__ == '__main__':
+
 	import sys 
-	# import os
-	# os.environ["CUDA_VISIBLE_DEVICES"]= '1'
-	sys.argv = ['train.py', '--dataset', 'coco', '--coco_path', './voc2coco', '--model', './results/01/backup_epoch1.pt']
+	sys.argv = ['vis.py', '--resume_path', './results/resnet18_warm5/backup_epoch7.pt', '--device', '4,5', '--save_path', './results/resnet18_warm5/']
 	main()

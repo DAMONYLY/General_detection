@@ -5,7 +5,7 @@ import torch.nn as nn
 import math
 from model.anchor.retina_anchor import Retina_Anchors
 from model.anchor.build_anchor import Anchors
-# from model.backbones.build_backbone import build_backbone
+from model.post_processing.nms import multiclass_nms
 from .backbones import build_backbone
 from model.head.build_head import build_head
 from model.necks.build_fpn import build_fpn
@@ -47,22 +47,37 @@ class General_detector(nn.Module):
 
         features = self.fpn(features) 
         
-        proposals_reg = torch.cat([self.reg_head(feature) for feature in features], dim=1)
-        proposals_cls = torch.cat([self.cls_head(feature) for feature in features], dim=1)
+        proposals_regs = torch.cat([self.reg_head(feature) for feature in features], dim=1)
+        proposals_clses = torch.cat([self.cls_head(feature) for feature in features], dim=1)
 
         
         
         if type == 'test':
-            # anchors = self.anchor(images)
             anchors = self.retina_anchor(images).squeeze()
-            p_reg = yolo_decode(proposals_reg, anchors)
-            p_cls = proposals_cls.squeeze(0)
-            
-            # 2. 将超出图片边界的框截掉
-            p_reg = clip_bboxes(p_reg, images)
-            scores, labels, boxes = nms_boxes(p_reg, p_cls)
-            return [scores, labels, boxes]
-        return [proposals_reg, proposals_cls]
+            batch_boxes, batch_scores, batch_labels = [], [], []
+            for id in range(self.batch_size):
+                proposals_reg = proposals_regs[id]
+                proposals_cls = proposals_clses[id]
+                p_reg = yolo_decode(proposals_reg, anchors)
+                p_cls = proposals_cls.squeeze(0)
+                
+                # 2. 将超出图片边界的框截掉
+                p_reg = clip_bboxes(p_reg, images)
+                padding = p_cls.new_zeros(p_cls.shape[0], 1)
+                p_cls = torch.cat([p_cls, padding], dim=1)
+                # scores, labels, boxes = nms_boxes(p_reg, p_cls)
+                boxes, scores, labels = multiclass_nms(
+                    multi_bboxes = p_reg,
+                    multi_scores = p_cls,
+                    score_thr=0.05,
+                    nms_cfg=dict(type="nms", iou_threshold=0.5),
+                    max_num=100,
+                )
+                batch_boxes.append(boxes)
+                batch_scores.append(scores)
+                batch_labels.append(labels)
+            return batch_boxes, batch_scores, batch_labels
+        return [proposals_regs, proposals_clses]
             
 
 

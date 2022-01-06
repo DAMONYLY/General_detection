@@ -11,7 +11,6 @@ import time
 import datetime
 import random
 import argparse
-from eval.evaluator import *
 from utils.tools import *
 from tensorboardX import SummaryWriter
 # import config.yolov3_config_voc as cfg
@@ -24,11 +23,11 @@ from eval import coco_eval
 
 
 class Trainer(object):
-    def __init__(self, args, gpu_id):
+    def __init__(self, args):
         #----------- 1. init seed for reproduce -----------------------------------
         init_seeds(10)
         #----------- 2. get gpu info -----------------------------------------------
-        self.device = gpu.select_device(gpu_id)
+        self.device = gpu.select_device(args.device)
 
         self.start_epoch = 0
         self.best_mAP = 0.
@@ -38,6 +37,7 @@ class Trainer(object):
         self.save_path = args.save_path
         self.multi_scale_train = cfg.TRAIN["MULTI_SCALE_TRAIN"]
         self.dataset = args.dataset
+        self.val_intervals = args.val_intervals
         #----------- 3. get train dataset ------------------------------------------
         if self.dataset == 'coco':
             
@@ -47,10 +47,16 @@ class Trainer(object):
             self.val_dataset = CocoDataset(args.dataset_path,
                                     set_name='val2017',
                                     transform=transforms.Compose([Normalizer(), Resizer()]))
-            sampler = AspectRatioBasedSampler(self.train_dataset, batch_size=args.batch_size, drop_last=False)
+            train_sampler = AspectRatioBasedSampler(self.train_dataset, batch_size=args.batch_size, drop_last=False)
             self.train_dataloader = DataLoader(self.train_dataset,
                                             num_workers=cfg.TRAIN["NUMBER_WORKERS"],
-                                            batch_sampler=sampler,
+                                            batch_sampler=train_sampler,
+                                            collate_fn=collater
+                                            )
+            val_sampler = AspectRatioBasedSampler(self.val_dataset, batch_size=args.batch_size, drop_last=False)
+            self.val_dataloader = DataLoader(self.val_dataset,
+                                            num_workers=cfg.TRAIN["NUMBER_WORKERS"],
+                                            batch_sampler=val_sampler,
                                             collate_fn=collater
                                             )
 
@@ -68,20 +74,20 @@ class Trainer(object):
         #------------6. init optimizer, criterion, scheduler, weights-----------------------
         self.optimizer = optim.SGD(self.model.parameters(), lr=cfg.TRAIN["LR_INIT"],
                                    momentum=cfg.TRAIN["MOMENTUM"], weight_decay=cfg.TRAIN["WEIGHT_DECAY"])
-        self.optimizer = optim.Adam(self.model.parameters(), lr=cfg.TRAIN["LR_INIT"])
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, verbose=True)
-
-        
-        #------------7. resume training --------------------------------------
-        if args.resume_path:
-            print('Start resume trainning from {}'.format(args.resume_path))
-            self.__load_model_weights(self.resume_path)
-
+        # self.optimizer = optim.Adam(self.model.parameters(), lr=cfg.TRAIN["LR_INIT"])
+        # self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, verbose=True)
         self.scheduler = cosine_lr_scheduler.CosineDecayLR(self.optimizer,
                                                           T_max=self.epochs*len(self.train_dataloader),
                                                           lr_init=cfg.TRAIN["LR_INIT"],
                                                           lr_min=cfg.TRAIN["LR_END"],
                                                           warmup=cfg.TRAIN["WARMUP_EPOCHS"]*len(self.train_dataloader))
+        
+        #------------7. resume training --------------------------------------
+        if args.resume_path:
+            print('Start resume trainning from {}'.format(args.resume_path))
+            self.__load_model_weights(args.resume_path)
+
+
         #-------------8. DP mode ------------------------------
         if self.device and torch.cuda.device_count() > 1:
             model = torch.nn.DataParallel(self.model)
@@ -133,7 +139,7 @@ class Trainer(object):
             # for i, (imgs, bboxes)  in enumerate(self.train_dataloader):
             for i, data in enumerate(self.train_dataloader):
                 # torch.cuda.synchronize()
-                # self.scheduler.step(len(self.train_dataloader)*epoch + i)
+                self.scheduler.step(len(self.train_dataloader)*epoch + i)
                 self.optimizer.zero_grad()
                 imgs = data['img']
                 bboxes = data['annot']
@@ -171,25 +177,25 @@ class Trainer(object):
                 iter_time += end_time - start_time
                 start_time = time.time()
                 # break
-            self.scheduler.step(mloss[2])
+            # self.scheduler.step(mloss[2])
             mAP = 0
             if self.save_path:
                 if not os.path.exists(self.save_path):
                     os.makedirs(self.save_path)
                 self.__save_model_weights(self.save_path, epoch, mAP)
                 print('best mAP : %g' % (self.best_mAP))
-            if epoch >= 2:
+            if epoch > 0 and epoch % self.val_intervals == 0:
                 print('*'*20+"Validate"+'*'*20)
                 with torch.no_grad():
                     if self.dataset == 'coco':
                         coco_eval.evaluate_coco(self.val_dataset, self.model)
-
+        
 
 
 if __name__ == "__main__":
 
     import sys 
-    # sys.argv = ['train.py', '--b', '20', '--device', '7', '--weight_path', 'darknet53_448.weights' ]
+    # sys.argv = ['train.py', '--b', '20', '--device', '7', '--resume_path', './results/resnet50/backup_epoch7.pt' ]
     parser = argparse.ArgumentParser()
     parser.add_argument('--weight_path', type=str, default='', help='weight file path to pretrain')
     parser.add_argument('--dataset', type=str, default='coco', help='dataset type')
@@ -198,10 +204,12 @@ if __name__ == "__main__":
     parser.add_argument('--save_path', type=str, default='', help='save model path')
     parser.add_argument('--pre_train', type=bool, default=True, help='whether to use pre-trained models')
     parser.add_argument('--batch_size', '--b', type=int, default=40,  help='mini batch number')
-    parser.add_argument('--device', default='7', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='4,5', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
+    parser.add_argument('--val_intervals', type=int, default=5,  help='val intervals')
     opt = parser.parse_args()
     # update_opt_to_cfg(opt, cfg)
     cfg.pre_train = opt.pre_train
     cfg.weight_path = opt.weight_path
-    Trainer(args = opt, gpu_id=opt.device).train()
+    Trainer(args = opt).train()
+    # Trainer(args = opt, gpu_id=opt.device).test()
