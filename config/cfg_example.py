@@ -15,7 +15,9 @@ MODEL = {
     'depth': 18, # depth of ResNet model [18, 34, 50, 101, 152]
     "fpn": 'fpn',
     "out_stride": [8, 16, 32], # TODO: 用于输出多少x的特征图用来检测
-    'head': 'normal',
+    'head': {
+            'type': 'normal',
+            'reg_head': 4},
     "ANCHORS":[[[3.625, 2.8125], [4.875, 6.1875], [11.65625, 10.1875]],  # Anchors for big obj
             [[1.875, 3.8125], [3.875, 2.8125], [3.6875, 7.4375]],  # Anchors for medium obj
             [[1.25, 1.625], [2.0, 3.75], [4.125, 2.875]]] ,# Anchors for small obj

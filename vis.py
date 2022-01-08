@@ -1,3 +1,4 @@
+from copy import deepcopy
 import numpy as np
 import time
 import time
@@ -7,10 +8,11 @@ import cv2
 
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torchvision import datasets, models, transforms
+from torchvision import transforms
 
-from utils.coco_dataloader import CocoDataset, CSVDataset, collater, Resizer, AspectRatioBasedSampler, Augmenter, UnNormalizer, Normalizer
+from utils.coco_dataloader import CocoDataset, collater, Resizer, AspectRatioBasedSampler, Augmenter, UnNormalizer, Normalizer
 from model.build_model import build
+from utils.draw_on_pic import visualize_boxes
 import utils.gpu as gpu
 from utils.model_info import get_model_info
 import config.cfg_example as cfg
@@ -91,6 +93,12 @@ def main(args=None):
 
 			img = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_BGR2RGB)
 
+			boxes = transformed_anchors[idxs[0]]
+			class_inds = labels[idxs[0]]
+			scores_box = scores[idxs[0]]
+			img_2 = deepcopy(img)
+			visualize_boxes(image=img_2, boxes=boxes, labels=class_inds, probs=scores_box, class_labels=cfg.DATA["CLASSES"])
+
 			for j in range(idxs[0].shape[0]):
 				bbox = transformed_anchors[idxs[0][j], :]
 				x1 = int(bbox[0])
@@ -106,6 +114,8 @@ def main(args=None):
 			path = os.path.join(args.save_path, 'pic/')
 			if not os.path.exists(path):
 				os.mkdir(path)
+			cv2.imwrite(os.path.join(path, "{}_2.jpg".format(idx)), img_2)
+			print("Num: {}, saved images : {}".format(idx + 1, path))
 			cv2.imwrite(os.path.join(path, "{}.jpg".format(idx)), img)
 			print("Num: {}, saved images : {}".format(idx + 1, path))
 
@@ -114,5 +124,5 @@ def main(args=None):
 if __name__ == '__main__':
 
 	import sys 
-	sys.argv = ['vis.py', '--resume_path', './results/resnet18_warm5/backup_epoch7.pt', '--device', '4,5', '--save_path', './results/resnet18_warm5/']
+	sys.argv = ['vis.py', '--resume_path', './results/resnet18_warm11/backup_epoch90.pt', '--device', '6', '--save_path', './results/resnet18_warm11/']
 	main()

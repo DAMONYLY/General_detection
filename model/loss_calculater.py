@@ -11,15 +11,15 @@ from model.loss.ultry_loss import FocalLoss
 class Loss_calculater(nn.Module):
     def __init__(self, cfg) -> None:
         super(Loss_calculater, self).__init__()
-        self.img_shape = cfg.TRAIN['TRAIN_IMG_SIZE']
+        self.img_shape = cfg.Train.TRAIN_IMG_SIZE
 
         self.anchors = Anchors()
-        self.retina_anchor = Retina_Anchors()
+        # self.retina_anchor = Retina_Anchors()
         # self.all_anchors = self.anchors(torch.zeros(size=(self.batch_size, 3, cfg.TRAIN['TRAIN_IMG_SIZE'],cfg.TRAIN['TRAIN_IMG_SIZE']),
         #                                 dtype=torch.double).cuda())
-        self.label_assign = build_metrics(cfg, cfg.MODEL['metrics'])
+        self.label_assign = build_metrics(cfg, cfg.Model.metrics)
         
-        self.loss = build_loss(cfg.MODEL['loss'], cfg)
+        self.loss = build_loss(cfg.Model.loss, cfg)
         
         self.FocalLoss = FocalLoss()
         
@@ -33,7 +33,9 @@ class Loss_calculater(nn.Module):
         """
 
 
-        retina_anchors = self.retina_anchor(imgs).squeeze(0)
+        # retina_anchors = self.retina_anchor(imgs).squeeze(0)
+
+        anchors = self.anchors(imgs)
         proposals_reg, proposals_cls = features
 
         if False:
@@ -41,7 +43,7 @@ class Loss_calculater(nn.Module):
         else:
 
             cls_pred, reg_pred, cls_target, reg_target = \
-                                self.label_assign(retina_anchors, targets, proposals_reg, proposals_cls)
+                                self.label_assign(anchors, targets, proposals_reg, proposals_cls)
 
             losses, losses_reg, losses_cls = \
                                 self.loss(cls_pred, reg_pred, cls_target, reg_target) # reg_loss, cls_loss, conf_loss

@@ -23,7 +23,7 @@ class FPN(nn.Module):
     the FPN of retinanet.
     TODO: 实现根据strides 动态构建FPN
     """
-    def __init__(self, strides, channel_in = 256, channel_out = 256):
+    def __init__(self, channel_in = 256, channel_out = 256):
         super(FPN, self).__init__()
 
 

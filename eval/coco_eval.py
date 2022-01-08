@@ -2,8 +2,9 @@ from pycocotools.cocoeval import COCOeval
 import json
 import torch
 from tqdm import tqdm
+import os
 
-def evaluate_coco(dataset, model, threshold=0.05):
+def evaluate_coco(dataset, model, save_path, threshold=0.05):
     
     model.eval()
     
@@ -13,7 +14,8 @@ def evaluate_coco(dataset, model, threshold=0.05):
         results = []
         image_ids = []
 
-        for index in tqdm(range(len(dataset))):
+        # for index in tqdm(range(len(dataset))):
+        for index in range(len(dataset)):
             data = dataset[index]
             scale = data['scale']
 
@@ -70,11 +72,11 @@ def evaluate_coco(dataset, model, threshold=0.05):
             return
 
         # write output
-        json.dump(results, open('{}_bbox_results.json'.format(dataset.set_name), 'w'), indent=4)
+        json.dump(results, open(os.path.join(save_path, '{}_bbox_results.json'.format(dataset.set_name)), 'w'), indent=4)
 
         # load results in COCO evaluation tool
         coco_true = dataset.coco
-        coco_pred = coco_true.loadRes('{}_bbox_results.json'.format(dataset.set_name))
+        coco_pred = coco_true.loadRes(os.path.join(save_path, '{}_bbox_results.json'.format(dataset.set_name)))
 
         # run COCO evaluation
         coco_eval = COCOeval(coco_true, coco_pred, 'bbox')
