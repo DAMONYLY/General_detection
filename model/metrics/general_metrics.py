@@ -60,11 +60,13 @@ class label_assign(nn.Module):
             target = targets[batch_id]
             target = target[target[:, 4] != -1]
 
-
+            if target.shape[0] == 0:
+                # print(target.shape)
+                continue
             # 计算IOU between anchor and target
             # overlaps = iou_xyxy_torch_batch(anchor, bbox_annotation)
             overlaps = iou_xyxy_torch(anchor, target[..., :4]) # [N, M]
-            
+           
             max_overlaps, argmax_overlaps = overlaps.max(dim=1)
 
             neg_mask = max_overlaps < self.neg_iou_thr

@@ -14,8 +14,8 @@ def evaluate_coco(dataset, model, save_path, threshold=0.05):
         results = []
         image_ids = []
 
-        # for index in tqdm(range(len(dataset))):
-        for index in range(len(dataset)):
+        for index in tqdm(range(len(dataset))):
+        # for index in range(len(dataset)):
             data = dataset[index]
             scale = data['scale']
 
@@ -84,7 +84,11 @@ def evaluate_coco(dataset, model, save_path, threshold=0.05):
         coco_eval.evaluate()
         coco_eval.accumulate()
         coco_eval.summarize()
-
+        aps = coco_eval.stats[:6]
         model.train()
-
-        return
+        eval_results = {}
+        metric_names = ["mAP", "AP_50", "AP_75", "AP_small", "AP_m", "AP_l"]
+        for k, v in zip(metric_names, aps):
+            eval_results[k] = v
+        # print(eval_results[metric_names[1]])
+        return eval_results

@@ -4,11 +4,11 @@ def Load_config(cfg, path):
     with open(path,'r') as f:
         config=yaml.load(f)
         a = Config(config)
-        print("getting hypeparameters:\n",a)
-        # return a
+
     for arg in vars(cfg):
         value = getattr(cfg, arg)
         a.add(arg, value)
+    print("getting hypeparameters:\n",a, cfg)
     return a
 
 

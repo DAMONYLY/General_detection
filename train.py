@@ -6,19 +6,17 @@ import torch
 import torch.optim as optim
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from utils.datasets import VocDataset
 import time
 import datetime
-import random
 import argparse
 from utils.load_config import Load_config
 from utils.tools import *
 from tensorboardX import SummaryWriter
-# import config.yolov3_config_voc as cfg
 import config.cfg_example as cfg
-from utils import cosine_lr_scheduler, model_info
+from utils import lr_scheduler, model_info
 from utils.coco_dataloader import AspectRatioBasedSampler, CocoDataset, Resizer, Augmenter, Normalizer, collater
 from eval import coco_eval
+from utils.optimizer import build_optimizer
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"]='1'
 
@@ -38,6 +36,9 @@ class Trainer(object):
         self.multi_scale_train = args.Train.MULTI_SCALE_TRAIN
         self.dataset = args.dataset
         self.val_intervals = args.val_intervals
+        self.tensorboard = args.tensorboard
+        if self.tensorboard:
+            self.writer = SummaryWriter(log_dir=os.path.join(self.save_path, 'logs'))
         #----------- 3. get train dataset ------------------------------------------
         if self.dataset == 'coco':
             self.train_dataset = CocoDataset(args.dataset_path,
@@ -71,16 +72,7 @@ class Trainer(object):
         # self.model.apply(tools.weights_init_normal)
 
         #------------6. init optimizer, criterion, scheduler, weights-----------------------
-        self.optimizer = optim.SGD(self.model.parameters(), lr=args.Train.LR_INIT,
-                                   momentum=args.Train.MOMENTUM, weight_decay=args.Train.WEIGHT_DECAY)
-        # self.optimizer = optim.Adam(self.model.parameters(), lr=args.Train.LR_INIT"])
-        # self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, verbose=True)
-        self.scheduler = cosine_lr_scheduler.CosineDecayLR(self.optimizer,
-                                                          T_max=self.epochs*len(self.train_dataloader),
-                                                          lr_init=args.Train.LR_INIT,
-                                                          lr_min=args.Train.LR_END,
-                                                          warmup=args.Train.WARMUP_EPOCHS*len(self.train_dataloader))
-        
+        self.optimizer, self.scheduler = build_optimizer(args, len(self.train_dataloader), self.model)
         #------------7. resume training --------------------------------------
         if args.resume_path:
             print('Start resume trainning from {}'.format(args.resume_path))
@@ -125,6 +117,9 @@ class Trainer(object):
             torch.save(chkpt['model'], best_weight)
         del chkpt
 
+    def scalar_summary(self, tag, phase, value, step):
+        self.writer.add_scalars(tag, {phase: value}, step)
+
     def train(self):
 
         print("Train datasets number is : {}".format(len(self.train_dataset)))
@@ -158,7 +153,7 @@ class Trainer(object):
 
                 print_fre = 10
                 # Print batch results
-                if i != 0 and i% print_fre == 0:
+                if i != 0 and i % print_fre == 0:
                     iter_time = iter_time / print_fre
                     eta_seconds = (all_iter - (epoch - self.start_epoch) * len(self.train_dataloader) - (i - 1)) * iter_time
                     eta_str = "ETA: {}".format(datetime.timedelta(seconds=int(eta_seconds)))
@@ -167,12 +162,15 @@ class Trainer(object):
                         epoch, self.epochs - 1, i, len(self.train_dataloader) - 1, iter_time, avg_loss[2], loss_items[0], loss_items[1], self.optimizer.param_groups[0]['lr'])
                     print(line +', ' + eta_str)
                     iter_time = 0
+                    if self.tensorboard:
+                        self.scalar_summary("Train_loss/avg_loss", "Train", avg_loss[2], i + epoch * len(self.train_dataloader))
+                        self.scalar_summary("Train_loss/lr", "Train", self.optimizer.param_groups[0]['lr'], i+epoch * len(self.train_dataloader))
 
                 end_time = time.time()
                 iter_time += end_time - start_time
                 start_time = time.time()
                 # break
-            # self.scheduler.step(mloss[2])
+            # self.scheduler.step(avg_loss[2])
             mAP = 0
             if self.save_path:
                 if not os.path.exists(self.save_path):
@@ -183,14 +181,16 @@ class Trainer(object):
                 print('*'*20+"Validate"+'*'*20)
                 with torch.no_grad():
                     if self.dataset == 'coco':
-                        coco_eval.evaluate_coco(self.val_dataset, self.model, save_path=self.save_path)
-        
+                        aps = coco_eval.evaluate_coco(self.val_dataset, self.model, save_path=self.save_path)
+                if self.tensorboard:
+                    self.scalar_summary("Train_loss/AP_50", "Train", aps["AP_50"], epoch)
 
 
 if __name__ == "__main__":
 
     import sys 
-    # sys.argv = ['train.py', '--b', '20', '--device', '7', '--resume_path', './results/resnet50/backup_epoch7.pt' ]
+    # sys.argv = ['train.py', '--b', '20', '--device', '7', '--dataset_path', './dataset/coco',\
+        # '--config', './config/test_coco.yaml' ]
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default='./config/test.yaml', help="train config file path")
     parser.add_argument('--weight_path', type=str, default='', help='weight file path to pretrain')
@@ -199,14 +199,14 @@ if __name__ == "__main__":
     parser.add_argument('--resume_path', type=str, default='', help='path of model file to resume')
     parser.add_argument('--save_path', type=str, default='', help='save model path')
     parser.add_argument('--pre_train', type=bool, default=True, help='whether to use pre-trained models')
-    parser.add_argument('--batch_size', '--b', type=int, default=40,  help='mini batch number')
-    parser.add_argument('--device', default='7', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--tensorboard', type=bool, default=True, help='whether to use pre-trained models')
+    parser.add_argument('--batch_size', '--b', type=int, default=4,  help='mini batch number')
+    parser.add_argument('--device', default='5', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument('--val_intervals', type=int, default=5,  help='val intervals')
     opt = parser.parse_args()
-    # update_opt_to_cfg(opt, cfg)
+    
+    # update_opt_to_cfg
     cfg = Load_config(opt, opt.config)
-    # cfg.pre_train = opt.pre_train
-    # cfg.weight_path = opt.weight_path
+
     Trainer(args = cfg).train()
-    # Trainer(args = opt, gpu_id=opt.device).test()

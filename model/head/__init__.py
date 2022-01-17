@@ -13,6 +13,7 @@ from .reg_head import RegressionModel
 def build_head(cfg, channel, num_anchor):
 
     if cfg.name == 'normal':
+        # assert cfg.cls_head_out == cfg.Classes.num
         reg_channel = cfg.reg_head_out
         cls_channel = cfg.cls_head_out
         regressionModel = RegressionModel(channel, num_anchor)

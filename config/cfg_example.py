@@ -22,7 +22,7 @@ MODEL = {
             [[1.875, 3.8125], [3.875, 2.8125], [3.6875, 7.4375]],  # Anchors for medium obj
             [[1.25, 1.625], [2.0, 3.75], [4.125, 2.875]]] ,# Anchors for small obj
     "STRIDES":[8, 16, 32],
-    "ANCHORS_PER_SCLAE":3,
+    "ANCHORS_PER_SCLAE": 9,
     "metrics": 'yolo',
     "loss": 'fun',
          }
