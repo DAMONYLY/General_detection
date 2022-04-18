@@ -2,7 +2,6 @@
 
 import torch
 import torch.nn as nn
-from model.anchor.retina_anchor import Retina_Anchors
 from model.anchor.build_anchor import Anchors
 from model.loss.build_loss import build_loss
 from model.metrics.build_metrics import build_metrics
@@ -19,9 +18,9 @@ class Loss_calculater(nn.Module):
         #                                 dtype=torch.double).cuda())
         self.label_assign = build_metrics(cfg, cfg.Model.metrics)
         
-        self.loss = build_loss(cfg.Model.loss, cfg)
+        self.loss = build_loss(cfg.Model.loss)
         
-        self.FocalLoss = FocalLoss()
+        # self.FocalLoss = FocalLoss()
         
     def forward(self, imgs, features, targets=None):
         """
@@ -38,32 +37,15 @@ class Loss_calculater(nn.Module):
         anchors = self.anchors(imgs)
         proposals_reg, proposals_cls = features
 
-        if False:
-            losses, losses_reg, losses_cls = self.FocalLoss(proposals_cls, proposals_reg, retina_anchors.unsqueeze(0), targets)
-        else:
+        # if False:
+        #     losses, losses_reg, losses_cls = self.FocalLoss(proposals_cls, proposals_reg, retina_anchors.unsqueeze(0), targets)
+        # else:
 
-            cls_pred, reg_pred, cls_target, reg_target = \
-                                self.label_assign(anchors, targets, proposals_reg, proposals_cls)
+        cls_pred, reg_pred, cls_target, reg_target = \
+                            self.label_assign(anchors, targets, proposals_reg, proposals_cls)
 
-            losses, losses_reg, losses_cls = \
-                                self.loss(cls_pred, reg_pred, cls_target, reg_target) # reg_loss, cls_loss, conf_loss
+        losses, losses_reg, losses_cls = \
+                            self.loss(cls_pred, reg_pred, cls_target, reg_target) # reg_loss, cls_loss, conf_loss
 
         return losses, losses_reg, losses_cls
 
-    def flatten_features(self, anchors):
-        """
-        Args:
-            anchors (list(torch.tensors)): the results of head output
-
-        Returns: 
-            anchors (list(torch.tensors)) : like [[B, N, w, h, feature_dim],...]
-        """
-        
-        if len(anchors[0].shape) == 5:
-            for id, item in enumerate(anchors):
-                anchors[id] = item.contiguous().view(item.shape[0], -1, item.shape[-1])
-            return torch.cat(anchors, dim = 1)
-        elif len(anchors[0].shape) == 3:
-            for id, item in enumerate(anchors):
-                anchors[id] = item.view(-1, item.shape[-1])
-            return torch.cat(anchors, dim = 0)

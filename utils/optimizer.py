@@ -9,6 +9,7 @@ def build_optimizer(cfg, dataset_length, model):
 
     schedule_cfg = cfg.Schedule.lr_schedule
     schedule_cfg['warmup'] *= dataset_length
+    schedule_cfg['milestones'] = (np.array(schedule_cfg['milestones']) + 1) * dataset_length
     name = schedule_cfg.pop("name")
     if name == 'MultiStep_LR':
         lr_scheduler = MultiStep_LR(optimizer=optimizer, **schedule_cfg)

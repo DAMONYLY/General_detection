@@ -21,6 +21,7 @@ class MultiStep_LR(object):
 
 
     def step(self, t):
+        # print(self.milestones, t)
         if self.__warmup and t < self.__warmup:
             lr = self.__lr / self.__warmup * t
         else:
@@ -33,7 +34,7 @@ class MultiStep_LR(object):
 
 
 class CosineDecay_LR(object):
-    def __init__(self, optimizer, T_max, lr_init, lr_min=0., warmup=0):
+    def __init__(self, optimizer, T_max, lr_min=0., warmup=0):
         """
         a cosine decay scheduler about steps, not epochs.
         :param optimizer: ex. optim.SGD

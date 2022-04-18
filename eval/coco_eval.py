@@ -14,8 +14,8 @@ def evaluate_coco(dataset, model, save_path, threshold=0.05):
         results = []
         image_ids = []
 
-        for index in tqdm(range(len(dataset))):
-        # for index in range(len(dataset)):
+        # for index in tqdm(range(len(dataset))):
+        for index in range(len(dataset)):
             data = dataset[index]
             scale = data['scale']
 

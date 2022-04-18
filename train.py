@@ -3,7 +3,6 @@ from model.loss_calculater import Loss_calculater
 from model.build_model import build
 import utils.gpu as gpu
 import torch
-import torch.optim as optim
 from torchvision import transforms
 from torch.utils.data import DataLoader
 import time
@@ -13,7 +12,7 @@ from utils.load_config import Load_config
 from utils.tools import *
 from tensorboardX import SummaryWriter
 import config.cfg_example as cfg
-from utils import lr_scheduler, model_info
+from utils import model_info
 from utils.coco_dataloader import AspectRatioBasedSampler, CocoDataset, Resizer, Augmenter, Normalizer, collater
 from eval import coco_eval
 from utils.optimizer import build_optimizer
@@ -189,9 +188,9 @@ class Trainer(object):
 if __name__ == "__main__":
 
     import sys 
-    # sys.argv = ['train.py', '--b', '20', '--device', '7', '--dataset_path', './dataset/coco',\
-        # '--config', './config/test_coco.yaml' ]
-    parser = argparse.ArgumentParser()
+    # sys.argv = ['train.py', '--b', '40', '--device', '0',\
+        # '--resume_path', './results/IOU_test/backup_epoch0.pt' ]
+    parser = argparse.ArgumentParser(description= 'General Detection config parser')
     parser.add_argument('--config', type=str, default='./config/test.yaml', help="train config file path")
     parser.add_argument('--weight_path', type=str, default='', help='weight file path to pretrain')
     parser.add_argument('--dataset', type=str, default='coco', help='dataset type')
@@ -201,7 +200,7 @@ if __name__ == "__main__":
     parser.add_argument('--pre_train', type=bool, default=True, help='whether to use pre-trained models')
     parser.add_argument('--tensorboard', type=bool, default=True, help='whether to use pre-trained models')
     parser.add_argument('--batch_size', '--b', type=int, default=4,  help='mini batch number')
-    parser.add_argument('--device', default='5', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument('--val_intervals', type=int, default=5,  help='val intervals')
     opt = parser.parse_args()
