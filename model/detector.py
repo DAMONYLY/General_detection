@@ -2,13 +2,13 @@
 "2021年11月24日20:31:54"
 import torch
 import torch.nn as nn
-import math
+
 from model.anchor.retina_anchor import Retina_Anchors
 from model.anchor.build_anchor import Anchors
-# from model.backbones.build_backbone import build_backbone
+from model.post_processing.nms import multiclass_nms
 from .backbones import build_backbone
-from model.head.build_head import build_head
-from model.necks.build_fpn import build_fpn
+from .head import build_head
+from .necks import build_fpn
 from model.post_processing.yolo_decoder import yolo_decode, clip_bboxes, nms_boxes
 
 
@@ -16,18 +16,18 @@ class General_detector(nn.Module):
     def __init__(self, cfg) -> None:
         super(General_detector, self).__init__()
         self.channel = 256
-        # self.batch_size = cfg.TRAIN['BATCH_SIZE']
-        self.num_anchors = cfg.MODEL['ANCHORS_PER_SCLAE']
-        self.train_img_shape = cfg.TRAIN['TRAIN_IMG_SIZE']
-        self.test_img_shape = cfg.TEST['TEST_IMG_SIZE']
+        # self.batch_size = cfg.TRAIN.BATCH_SIZE.
+        self.num_anchors = cfg.Model.anchors.num
+        self.train_img_shape = cfg.Train.TRAIN_IMG_SIZE
+        self.test_img_shape = cfg.Test.TEST_IMG_SIZE
         self.backbone = build_backbone(cfg)
         
-        self.fpn = build_fpn(cfg.MODEL['fpn'], cfg.MODEL['out_stride'], channel_in = self.backbone.fpn_size)
+        self.fpn = build_fpn(cfg.Model.fpn, channel_in = self.backbone.fpn_size)
 
-        self.reg_head, self.cls_head = build_head(cfg.MODEL['head'], self.channel, self.num_anchors)
+        self.reg_head, self.cls_head = build_head(cfg.Model.head, self.fpn.channel_out, self.num_anchors)
 
-        self.anchor = Anchors()
-        self.retina_anchor = Retina_Anchors()
+        self.anchor = Anchors(cfg.Model.anchors)
+        # self.retina_anchor = Retina_Anchors()
 
         # self.retinanet = model.resnet18(num_classes=20, pretrained=True)
         
@@ -47,37 +47,38 @@ class General_detector(nn.Module):
 
         features = self.fpn(features) 
         
-        proposals_reg = torch.cat([self.reg_head(feature) for feature in features], dim=1)
-        proposals_cls = torch.cat([self.cls_head(feature) for feature in features], dim=1)
+        proposals_regs = torch.cat([self.reg_head(feature) for feature in features], dim=1)
+        proposals_clses = torch.cat([self.cls_head(feature) for feature in features], dim=1)
 
         
         
         if type == 'test':
-            # anchors = self.anchor(images)
-            anchors = self.retina_anchor(images).squeeze()
-            p_reg = yolo_decode(proposals_reg, anchors)
-            p_cls = proposals_cls.squeeze(0)
+            anchors = self.anchor(images)
+            batch_boxes, batch_scores, batch_labels = [], [], []
+            for id in range(self.batch_size):
+                proposals_reg = proposals_regs[id]
+                proposals_cls = proposals_clses[id]
+                p_reg = yolo_decode(proposals_reg, anchors)
+                p_cls = proposals_cls.squeeze(0)
+                
+                # 2. 将超出图片边界的框截掉
+                p_reg = clip_bboxes(p_reg, images)
+                padding = p_cls.new_zeros(p_cls.shape[0], 1)
+                p_cls = torch.cat([p_cls, padding], dim=1)
+                # scores, labels, boxes = nms_boxes(p_reg, p_cls)
+                boxes, scores, labels = multiclass_nms(
+                    multi_bboxes = p_reg,
+                    multi_scores = p_cls,
+                    score_thr=0.05,
+                    nms_cfg=dict(type="nms", iou_threshold=0.5),
+                    max_num=100,
+                )
+                batch_boxes.append(boxes)
+                batch_scores.append(scores)
+                batch_labels.append(labels)
+            return batch_boxes, batch_scores, batch_labels
+        return [proposals_regs, proposals_clses]
             
-            # 2. 将超出图片边界的框截掉
-            p_reg = clip_bboxes(p_reg, images)
-            scores, labels, boxes = nms_boxes(p_reg, p_cls)
-            return [scores, labels, boxes]
-        return [proposals_reg, proposals_cls]
-            
-
-
-    def flatten_anchors(self, anchors, feature_dim):
-        """
-        Args:
-            anchors (list(torch.tensors)): the results of head output
-
-        Returns: 
-            anchors (list(torch.tensors)) : like [[B, N, w, h, feature_dim],...]
-        """
-        
-        for id, item in enumerate(anchors):
-            anchors[id] = item.view(self.batch_size, self.num_anchors, feature_dim, item.shape[2], item.shape[3]).permute(0, 1, 3, 4, 2)
-        return anchors
 
     def load_darknet_weights(self, weight_file, cutoff=52):
         "https://github.com/ultralytics/yolov3/blob/master/models.py"

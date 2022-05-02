@@ -9,6 +9,7 @@ import sys
 from model.anchor.build_anchor import Anchors
 sys.path.append('/raid/yaoliangyong/General_detection/')
 from utils.tools import *
+from ..post_processing.yolo_decoder import yolo_decode
 
 
 
@@ -19,9 +20,7 @@ class label_assign(nn.Module):
         self.pos_iou_thr = pos_iou_thr
         self.neg_iou_thr = neg_iou_thr
         self.strides = [32, 16, 8]
-        # self.anchor = self.origin_to_grid(cfg.MODEL['ANCHORS'], cfg.TRAIN['TRAIN_IMG_SIZE'], self.strides)
-        # self.anchor = torch.tensor(cfg.MODEL['ANCHORS'])
-        # self.num_anchor = self.anchor.shape[1]
+        self.IOU_loss = True if 'iou' in cfg.Model.loss.reg_loss.name.lower() else False
 
 
     def forward(self, anchors, targets, regressions, classifications):
@@ -60,22 +59,19 @@ class label_assign(nn.Module):
             target = targets[batch_id]
             target = target[target[:, 4] != -1]
 
-
+            if target.shape[0] == 0:
+                # print(target.shape)
+                continue
             # 计算IOU between anchor and target
-            # overlaps = iou_xyxy_torch_batch(anchor, bbox_annotation)
             overlaps = iou_xyxy_torch(anchor, target[..., :4]) # [N, M]
-            
             max_overlaps, argmax_overlaps = overlaps.max(dim=1)
 
             neg_mask = max_overlaps < self.neg_iou_thr
             pos_mask = max_overlaps > self.pos_iou_thr
             
-
             assign_targets = target[argmax_overlaps]
-
-            
+         
             # bulid cls targets and preds
-            # 
             pos_cls_preds = classification[pos_mask]
             pos_cls_targets = torch.zeros_like(pos_cls_preds)
             
@@ -83,14 +79,24 @@ class label_assign(nn.Module):
             neg_cls_targets = torch.zeros_like(neg_cls_preds)
             pos_cls_targets[torch.arange(pos_cls_targets.shape[0]), assign_targets[pos_mask, 4].long()] = 1
 
-            cls_preds = torch.cat([pos_cls_preds, neg_cls_preds], dim = 0)
-            cls_targets = torch.cat([pos_cls_targets, neg_cls_targets], dim = 0)
             # bulid reg targets and preds
             reg_preds = regression[pos_mask]
-            reg_targets = self.encode(anchor[pos_mask], assign_targets[pos_mask])
-            # reg_targets = reg_targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).to(device)
+            neg_reg_preds = regression[neg_mask]
 
-
+            if self.IOU_loss:
+                reg_preds = yolo_decode(reg_preds, anchor[pos_mask])
+                reg_preds = IOU_xyxy_torch_same(reg_preds, assign_targets[pos_mask, :4])
+                reg_targets = torch.ones_like(reg_preds)
+                pos_cls_targets[torch.arange(pos_cls_targets.shape[0]), assign_targets[pos_mask, 4].long()] = reg_preds.detach()
+                
+                neg_reg_preds = yolo_decode(neg_reg_preds, anchor[neg_mask])
+                neg_reg_preds = IOU_xyxy_torch_same(neg_reg_preds, assign_targets[neg_mask, :4])
+                neg_cls_targets[torch.arange(neg_cls_targets.shape[0]), assign_targets[neg_mask, 4].long()] = neg_reg_preds.detach()
+            else:
+                reg_targets = self.encode(anchor[pos_mask], assign_targets[pos_mask])
+            
+            cls_preds = torch.cat([pos_cls_preds, neg_cls_preds], dim = 0)
+            cls_targets = torch.cat([pos_cls_targets, neg_cls_targets], dim = 0)
             
             cls_preds_assign.append(cls_preds)
             reg_preds_assign.append(reg_preds)

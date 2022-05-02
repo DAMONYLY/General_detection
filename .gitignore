@@ -24,4 +24,5 @@ __pycache__/
 *.engine
 *.jpg
 *.weights
+*.json
 events.out.tfevents*

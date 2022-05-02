@@ -2,8 +2,9 @@ from pycocotools.cocoeval import COCOeval
 import json
 import torch
 from tqdm import tqdm
+import os
 
-def evaluate_coco(dataset, model, threshold=0.05):
+def evaluate_coco(dataset, model, save_path, threshold=0.05):
     
     model.eval()
     
@@ -13,16 +14,20 @@ def evaluate_coco(dataset, model, threshold=0.05):
         results = []
         image_ids = []
 
-        for index in tqdm(range(len(dataset))):
+        # for index in tqdm(range(len(dataset))):
+        for index in range(len(dataset)):
             data = dataset[index]
             scale = data['scale']
 
             # run network
             if torch.cuda.is_available():
-
-                scores, labels, boxes = model(data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0), type = 'test')
+                boxes, scores, labels = model(data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0), 'test')
             else:
-                scores, labels, boxes = model(data['img'].permute(2, 0, 1).float().unsqueeze(dim=0))
+                boxes, scores, labels = model(data['img'].permute(2, 0, 1).float().unsqueeze(dim=0), 'test')
+            if isinstance(scores, list):
+                scores = scores[0]
+                labels = labels[0]
+                boxes = boxes[0]
             scores = scores.cpu()
             labels = labels.cpu()
             boxes  = boxes.cpu()
@@ -64,15 +69,14 @@ def evaluate_coco(dataset, model, threshold=0.05):
             # print('{}/{}'.format(index, len(dataset)), end='\r')
 
         if not len(results):
-            print('no results')
             return
 
         # write output
-        json.dump(results, open('{}_bbox_results.json'.format(dataset.set_name), 'w'), indent=4)
+        json.dump(results, open(os.path.join(save_path, '{}_bbox_results.json'.format(dataset.set_name)), 'w'), indent=4)
 
         # load results in COCO evaluation tool
         coco_true = dataset.coco
-        coco_pred = coco_true.loadRes('{}_bbox_results.json'.format(dataset.set_name))
+        coco_pred = coco_true.loadRes(os.path.join(save_path, '{}_bbox_results.json'.format(dataset.set_name)))
 
         # run COCO evaluation
         coco_eval = COCOeval(coco_true, coco_pred, 'bbox')
@@ -80,7 +84,11 @@ def evaluate_coco(dataset, model, threshold=0.05):
         coco_eval.evaluate()
         coco_eval.accumulate()
         coco_eval.summarize()
-
+        aps = coco_eval.stats[:6]
         model.train()
-
-        return
+        eval_results = {}
+        metric_names = ["mAP", "AP_50", "AP_75", "AP_small", "AP_m", "AP_l"]
+        for k, v in zip(metric_names, aps):
+            eval_results[k] = v
+        # print(eval_results[metric_names[1]])
+        return eval_results

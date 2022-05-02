@@ -3,7 +3,7 @@
 
 from model.detector import General_detector
 def build(cfg):
-    if cfg.MODEL['name'] == 'General':
+    if cfg.Model.name == 'General':
         return General_detector(cfg)
     else:
         raise NotImplementedError

@@ -12,7 +12,7 @@ def yolo_decode(feature, anchor):
     output:
         feature (torch.tensor): after decode. [all_num_anchors, reg], in xyxy form.
     """
-    batch_size, num_anchor, out_dim = feature.shape
+    num_anchor, out_dim = feature.shape
     dtype = feature.dtype
     device = feature.device
     # anchor = anchor.unsqueeze(0).repeat(batch_size, 1, 1, 1).type(dtype).to(device)
@@ -33,10 +33,6 @@ def yolo_decode(feature, anchor):
     pred_x2 = pred_dx + 0.5*pred_dw
     pred_y2 = pred_dy + 0.5*pred_dh
     pred_reg = torch.stack([pred_x1, pred_y1, pred_x2, pred_y2], dim = -1).view(-1, out_dim)
-    # pred_obj = torch.sigmoid(feature[..., 4:5])
-    # pred_cls = torch.sigmoid(feature[..., 5:])
-
-    # pred_bbox = torch.cat([pred_reg, pred_obj, pred_cls], dim=-1).view(-1, out_dim)
 
     return pred_reg
 

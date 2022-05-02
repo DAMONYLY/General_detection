@@ -7,8 +7,9 @@
 from model.loss.model_loss import Loss
 
 
-def build_loss(type, cfg):
-    if type == 'fun':
-        return Loss(1, 1)
-    else:
-        raise NotImplementedError
+def build_loss(cfg):
+    return Loss(cfg.cls_loss.name, cfg.reg_loss.name, cfg.cls_loss.ratio, cfg.reg_loss.ratio)
+    # if type == 'fun':
+    #     return Loss(cfg, 1)
+    # else:
+    #     raise NotImplementedError

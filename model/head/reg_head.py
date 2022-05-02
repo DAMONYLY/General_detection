@@ -1,23 +1,25 @@
 import torch.nn as nn
-import math
+
 class RegressionModel(nn.Module):
-    def __init__(self, num_features_in, num_anchors=3, feature_size=256):
+    def __init__(self, num_features_in, num_anchors, cfg):
         super(RegressionModel, self).__init__()
+        
+        feature_size = cfg.get('mid_channel', 256)
+        self.out_channel = cfg.get('out_channel', 4)
+        self.stack_layers = cfg.get('stack_layers', 4)
+        self.reg_convs = nn.ModuleList()
+        
+        for i in range(self.stack_layers):
+            channel = num_features_in if i == 0 else feature_size
+            self.reg_convs.append(
+                nn.Conv2d(channel, feature_size, kernel_size=3, padding=1))
+            self.reg_convs.append(
+                nn.BatchNorm2d(feature_size))
+            self.reg_convs.append(
+                nn.ReLU())
 
-        self.conv1 = nn.Conv2d(num_features_in, feature_size, kernel_size=3, padding=1)
-        self.act1 = nn.ReLU()
-
-        self.conv2 = nn.Conv2d(feature_size, feature_size, kernel_size=3, padding=1)
-        self.act2 = nn.ReLU()
-
-        self.conv3 = nn.Conv2d(feature_size, feature_size, kernel_size=3, padding=1)
-        self.act3 = nn.ReLU()
-
-        self.conv4 = nn.Conv2d(feature_size, feature_size, kernel_size=3, padding=1)
-        self.act4 = nn.ReLU()
-
-        self.output = nn.Conv2d(feature_size, num_anchors * 4, kernel_size=3, padding=1)
-        self.num_anchor = num_anchors
+        self.output = nn.Conv2d(feature_size, num_anchors * self.out_channel, kernel_size=3, padding=1)
+        # self.num_anchor = num_anchors
         # for m in self.modules():
         #     if isinstance(m, nn.Conv2d):
         #         n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
@@ -37,22 +39,14 @@ class RegressionModel(nn.Module):
 
 
     def forward(self, x):
-        out = self.conv1(x)
-        out = self.act1(out)
 
-        out = self.conv2(out)
-        out = self.act2(out)
-
-        out = self.conv3(out)
-        out = self.act3(out)
-
-        out = self.conv4(out)
-        out = self.act4(out)
-
-        out = self.output(out)
+        reg_feature = x
+        for conv in self.reg_convs:
+            reg_feature = conv(reg_feature)
+        out = self.output(reg_feature)
         out = out.permute(0, 2, 3, 1)
 
-        return out.contiguous().view(out.shape[0], -1, 4)
+        return out.contiguous().view(out.shape[0], -1, self.out_channel)
 
 def normal_init(module, mean=0, std=1, bias=0):
     nn.init.normal_(module.weight, mean, std)
