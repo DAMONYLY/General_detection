@@ -12,7 +12,7 @@ class Loss_calculater(nn.Module):
         super(Loss_calculater, self).__init__()
         self.img_shape = cfg.Train.TRAIN_IMG_SIZE
 
-        self.anchors = Anchors()
+        self.anchors = Anchors(cfg.Model.anchors)
         # self.retina_anchor = Retina_Anchors()
         # self.all_anchors = self.anchors(torch.zeros(size=(self.batch_size, 3, cfg.TRAIN['TRAIN_IMG_SIZE'],cfg.TRAIN['TRAIN_IMG_SIZE']),
         #                                 dtype=torch.double).cuda())
@@ -34,9 +34,9 @@ class Loss_calculater(nn.Module):
 
         # retina_anchors = self.retina_anchor(imgs).squeeze(0)
 
-        anchors = self.anchors(imgs)
+        
         proposals_reg, proposals_cls = features
-
+        anchors = self.anchors(imgs)
         # if False:
         #     losses, losses_reg, losses_cls = self.FocalLoss(proposals_cls, proposals_reg, retina_anchors.unsqueeze(0), targets)
         # else:

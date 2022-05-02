@@ -28,6 +28,7 @@ class FPN(nn.Module):
 
 
         # upsample C5 to get P5 from the FPN paper
+        self.channel_out = channel_out
         self.P5_1 = nn.Conv2d(channel_in[2], channel_out, kernel_size=1, stride=1, padding=0)
         self.P5_upsampled = nn.Upsample(scale_factor=2, mode='nearest')
         self.P5_2 = nn.Conv2d(channel_out, channel_out, kernel_size=3, stride=1, padding=1)

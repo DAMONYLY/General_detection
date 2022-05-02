@@ -1,4 +1,5 @@
 
+from yaml import parse
 from model.loss_calculater import Loss_calculater
 from model.build_model import build
 import utils.gpu as gpu
@@ -8,7 +9,7 @@ from torch.utils.data import DataLoader
 import time
 import datetime
 import argparse
-from utils.load_config import Load_config
+from utils.load_config import parse_args_and_yaml, Load_config
 from utils.tools import *
 from tensorboardX import SummaryWriter
 import config.cfg_example as cfg
@@ -77,7 +78,6 @@ class Trainer(object):
             print('Start resume trainning from {}'.format(args.resume_path))
             self.__load_model_weights(args.resume_path)
 
-
         #-------------8. DP mode ------------------------------
         if self.device and torch.cuda.device_count() > 1:
             model = torch.nn.DataParallel(self.model)
@@ -138,7 +138,7 @@ class Trainer(object):
                 bboxes = data['annot']
                 imgs = imgs.to(self.device)
                 bboxes = bboxes.to(self.device)
-
+                # print(i, imgs.shape)
                 features = self.model(imgs)
                 loss, loss_reg, loss_cls = self.loss_calculater(imgs, features, bboxes)
 
@@ -188,9 +188,8 @@ class Trainer(object):
 if __name__ == "__main__":
 
     import sys 
-    # sys.argv = ['train.py', '--b', '40', '--device', '0',\
-        # '--resume_path', './results/IOU_test/backup_epoch0.pt' ]
-    parser = argparse.ArgumentParser(description= 'General Detection config parser')
+    # sys.argv = ['train.py', '--b', '40', '--device', '0' ]
+    default_config_parser = parser = argparse.ArgumentParser(description= 'General Detection config parser')
     parser.add_argument('--config', type=str, default='./config/test.yaml', help="train config file path")
     parser.add_argument('--weight_path', type=str, default='', help='weight file path to pretrain')
     parser.add_argument('--dataset', type=str, default='coco', help='dataset type')
@@ -198,14 +197,15 @@ if __name__ == "__main__":
     parser.add_argument('--resume_path', type=str, default='', help='path of model file to resume')
     parser.add_argument('--save_path', type=str, default='', help='save model path')
     parser.add_argument('--pre_train', type=bool, default=True, help='whether to use pre-trained models')
-    parser.add_argument('--tensorboard', type=bool, default=True, help='whether to use pre-trained models')
-    parser.add_argument('--batch_size', '--b', type=int, default=4,  help='mini batch number')
+    parser.add_argument('--tensorboard', action='store_true', help='whether to use tensorboard')
+    parser.add_argument('--batch_size', '--b', type=int, default=2,  help='mini batch number')
     parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument('--val_intervals', type=int, default=5,  help='val intervals')
-    opt = parser.parse_args()
+    # opt = parser.parse_args()
     
     # update_opt_to_cfg
-    cfg = Load_config(opt, opt.config)
-
+    cfg = parse_args_and_yaml(default_config_parser)
+    # cfg = Load_config(opt, opt.config)
+    print(cfg)
     Trainer(args = cfg).train()

@@ -14,10 +14,11 @@ def build_head(cfg, channel, num_anchor):
 
     if cfg.name == 'normal':
         # assert cfg.cls_head_out == cfg.Classes.num
-        reg_channel = cfg.reg_head_out
-        cls_channel = cfg.cls_head_out
-        regressionModel = RegressionModel(channel, num_anchor)
-        classificationModel = ClassificationModel(channel, num_anchor, num_classes=cls_channel)
+        # build reg head
+        regressionModel = RegressionModel(channel, num_anchor, cfg.reg_head)
+        
+        #build cls head
+        classificationModel = ClassificationModel(channel, num_anchor, cfg.cls_head)
         return regressionModel, classificationModel
     else:
         raise NotImplementedError

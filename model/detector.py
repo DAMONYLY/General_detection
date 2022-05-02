@@ -24,9 +24,9 @@ class General_detector(nn.Module):
         
         self.fpn = build_fpn(cfg.Model.fpn, channel_in = self.backbone.fpn_size)
 
-        self.reg_head, self.cls_head = build_head(cfg.Model.head, self.channel, self.num_anchors)
+        self.reg_head, self.cls_head = build_head(cfg.Model.head, self.fpn.channel_out, self.num_anchors)
 
-        self.anchor = Anchors()
+        self.anchor = Anchors(cfg.Model.anchors)
         # self.retina_anchor = Retina_Anchors()
 
         # self.retinanet = model.resnet18(num_classes=20, pretrained=True)
