@@ -12,11 +12,11 @@ import argparse
 from utils.load_config import parse_args_and_yaml, Load_config
 from utils.tools import *
 from tensorboardX import SummaryWriter
-import config.cfg_example as cfg
 from utils import model_info
 from utils.coco_dataloader import AspectRatioBasedSampler, CocoDataset, Resizer, Augmenter, Normalizer, collater
 from eval import coco_eval
 from utils.optimizer import build_optimizer
+from utils.config import cfg, load_config
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"]='1'
 
@@ -24,38 +24,46 @@ from utils.optimizer import build_optimizer
 class Trainer(object):
     def __init__(self, args):
         #----------- 1. init seed for reproduce -----------------------------------
-        init_seeds(10)
+        init_seeds(args.Schedule.seed)
         #----------- 2. get gpu info -----------------------------------------------
-        self.device = gpu.select_device(args.device)
+        self.device = gpu.select_device(args.Schedule.device.gpus)
         self.start_epoch = 0
         self.best_mAP = 0.
         self.DP = False
-        self.epochs = args.Train.EPOCHS
-        self.weight_path = args.weight_path
-        self.save_path = args.save_path
+        self.epochs = args.Schedule.epochs
+        
+        # self.weight_path = args.weight_path
+
+        self.save_path = args.Log.save_path
         self.multi_scale_train = args.Train.MULTI_SCALE_TRAIN
-        self.dataset = args.dataset
-        self.val_intervals = args.val_intervals
-        self.tensorboard = args.tensorboard
+        self.dataset = args.Data.dataset_type
+        self.val_intervals = args.Log.val_intervals
+        self.tensorboard = args.Log.tensorboard
         if self.tensorboard:
             self.writer = SummaryWriter(log_dir=os.path.join(self.save_path, 'logs'))
         #----------- 3. get train dataset ------------------------------------------
         if self.dataset == 'coco':
-            self.train_dataset = CocoDataset(args.dataset_path,
+            self.train_dataset = CocoDataset(args.Data.train.dataset_path,
                             set_name='train2017',
                             transform=transforms.Compose([Normalizer(), Resizer()]))
-            self.val_dataset = CocoDataset(args.dataset_path,
+            self.val_dataset = CocoDataset(args.Data.test.dataset_path,
                                     set_name='val2017',
                                     transform=transforms.Compose([Normalizer(), Resizer()]))
-            train_sampler = AspectRatioBasedSampler(self.train_dataset, batch_size=args.batch_size, drop_last=False)
+            train_sampler = AspectRatioBasedSampler(self.train_dataset, 
+                                                    batch_size=args.Schedule.device.batch_size, 
+                                                    drop_last=False
+                                                    )
             self.train_dataloader = DataLoader(self.train_dataset,
-                                            num_workers=args.Train.NUMBER_WORKERS,
+                                            num_workers=args.Schedule.device.num_workers,
                                             batch_sampler=train_sampler,
                                             collate_fn=collater
                                             )
-            val_sampler = AspectRatioBasedSampler(self.val_dataset, batch_size=args.batch_size, drop_last=False)
+            val_sampler = AspectRatioBasedSampler(self.val_dataset, 
+                                                batch_size=args.Schedule.device.batch_size, 
+                                                drop_last=False
+                                                )
             self.val_dataloader = DataLoader(self.val_dataset,
-                                            num_workers=args.Train.NUMBER_WORKERS,
+                                            num_workers=args.Schedule.device.num_workers,
                                             batch_sampler=val_sampler,
                                             collate_fn=collater
                                             )
@@ -74,9 +82,9 @@ class Trainer(object):
         #------------6. init optimizer, criterion, scheduler, weights-----------------------
         self.optimizer, self.scheduler = build_optimizer(args, len(self.train_dataloader), self.model)
         #------------7. resume training --------------------------------------
-        if args.resume_path:
-            print('Start resume trainning from {}'.format(args.resume_path))
-            self.__load_model_weights(args.resume_path)
+        if args.Schedule.resume_path:
+            print('Start resume trainning from {}'.format(args.Schedule.resume_path))
+            self.__load_model_weights(args.Schedule.resume_path)
 
         #-------------8. DP mode ------------------------------
         if self.device and torch.cuda.device_count() > 1:
@@ -199,13 +207,13 @@ if __name__ == "__main__":
     parser.add_argument('--pre_train', type=bool, default=True, help='whether to use pre-trained models')
     parser.add_argument('--tensorboard', action='store_true', help='whether to use tensorboard')
     parser.add_argument('--batch_size', '--b', type=int, default=2,  help='mini batch number')
-    parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='cpu', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument('--val_intervals', type=int, default=5,  help='val intervals')
-    # opt = parser.parse_args()
-    
+    opt = parser.parse_args()
+    load_config(cfg, opt.config)
     # update_opt_to_cfg
-    cfg = parse_args_and_yaml(default_config_parser)
+    # cfg = parse_args_and_yaml(default_config_parser)
     # cfg = Load_config(opt, opt.config)
     print(cfg)
     Trainer(args = cfg).train()

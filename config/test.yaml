@@ -10,6 +10,8 @@ Classes:
 Model:
   name: General # [YOLO, General]
   backbone:
+    pretrain: True # whether to use pretrain model
+    weight_path: # if exist, means load this weight path to pretrain
     name: Resnet # [Darknet53, Resnet, shufflenetv2]
     depth: 50 # depth of ResNet model [18, 34, 50, 101, 152]
     # model_size: 1.0x # model size of shufflenetv2 model[0.5x, 1.0x, 1.5x, 2.0x]
@@ -29,18 +31,12 @@ Model:
       stack_layers: 4 # 用于指定卷积的层数
     head_shared: True # TODO: 用于指定head对于不同的FPN层是否共享 
   anchors: 
-    width_height: [[[3.625, 2.8125], [4.875, 6.1875], [11.65625, 10.1875]],  # Anchors for big obj
-                  [[1.875, 3.8125], [3.875, 2.8125], [3.6875, 7.4375]],  # Anchors for medium obj
-                  [[1.25, 1.625], [2.0, 3.75], [4.125, 2.875]]]  # Anchors for small obj
     strides: [8, 16, 32, 64, 128]
     sizes: [32, 64, 128, 256, 512]
     ratios: [0.5, 1, 2]
     scales: [2 ** 0] # [2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)]
-
     num: 3
-  
   metrics: yolo
-  
   loss:
     reg_loss: 
       name: SmoothL1 #[SmoothL1, IOU]
@@ -49,7 +45,21 @@ Model:
       name: Focal
       ratio: 1
 
+Data:
+  dataset_type: coco # type of dataset, now only support coco
+  train:
+    dataset_path: ./dataset/voc2coco # path of dataset
+  test:
+    dataset_path: ./dataset/voc2coco # path of dataset
+
+
 Schedule:
+  resume_path: # if exist, means resume training from resume path
+  device:
+    gpus: '0'
+    batch_size: 32
+    num_workers: 4
+  seed: 10
   epochs: 100
   optimizer:
     name: SGD
@@ -61,6 +71,12 @@ Schedule:
     milestones: [35,70,85]
     gamma: 0.1
     warmup: 2
+
+Log:
+  save_path: ./result # where to save model(.pth) and tensorboard data
+  tensorboard: True # whether to use tensorboard to collect results
+  val_intervals: 5 # epochs to val 
+
 
 # train
 Train:
