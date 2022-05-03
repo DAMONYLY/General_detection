@@ -23,7 +23,7 @@ def select_device2(id, force_cpu=False):
 
 def select_device(device='', batch_size=None):
     # device = 'cpu' or '0' or '0,1,2,3'
-    cpu_request = device.lower() == 'cpu'
+    cpu_request = type(device) == str and device.lower() == 'cpu'
     if device and not cpu_request:  # if device requested other than 'cpu'
         os.environ['CUDA_VISIBLE_DEVICES'] = device  # set environment variable
         assert torch.cuda.is_available(), 'CUDA unavailable, invalid device %s requested' % device  # check availablity
