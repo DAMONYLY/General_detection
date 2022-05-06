@@ -1,4 +1,10 @@
 # General_Detection
+# TODO, 给每一个文件夹下添加 __init__.py 文件，让import更简洁
+
+## 2022年5月6日09:40:55
+1.  将2022年1月8日20:40:35实现的功能升级；
+    基本上抛弃了argparse的使用，所有参数全部使用yaml文件控制，使用yacs包实现。
+    Commit: a0459da4aa7e9ccb28827ab23412dab68b32cc51
 
 ## 2022年1月17日16:32:12
 1. 新增了lr调整策略，MultiStep_LR, lr阶段下降策略，位置在utils/lr_scheduler.py下

@@ -13,7 +13,9 @@ from utils.load_config import parse_args_and_yaml, Load_config
 from utils.tools import *
 from tensorboardX import SummaryWriter
 from utils import model_info
-from utils.coco_dataloader import AspectRatioBasedSampler, CocoDataset, Resizer, Augmenter, Normalizer, collater
+from utils.coco_dataloader import AspectRatioBasedSampler, Resizer, Augmenter, Normalizer, collater
+from model.data.dataset import CocoDataset
+from model.data import simple_collater
 from eval import coco_eval
 from utils.optimizer import build_optimizer
 from utils.config import cfg, load_config
@@ -46,11 +48,11 @@ class Trainer(object):
         if self.dataset == 'coco':
             self.train_dataset = CocoDataset(args.Data.train.dataset_path,
                             set_name='train2017',
-                            transform=transforms.Compose([Resizer()])
+                            pipeline=args.Data.train.pipeline
                             )
             self.val_dataset = CocoDataset(args.Data.test.dataset_path,
                                     set_name='val2017',
-                                    transform=transforms.Compose([Normalizer(), Resizer()])
+                                    pipeline=args.Data.test.pipeline
                                     )
             train_sampler = AspectRatioBasedSampler(self.train_dataset, 
                                                     batch_size=args.Schedule.device.batch_size, 
@@ -59,7 +61,7 @@ class Trainer(object):
             self.train_dataloader = DataLoader(self.train_dataset,
                                             num_workers=args.Schedule.device.num_workers,
                                             batch_sampler=train_sampler,
-                                            collate_fn=collater
+                                            collate_fn=simple_collater
                                             )
             val_sampler = AspectRatioBasedSampler(self.val_dataset, 
                                                 batch_size=args.Schedule.device.batch_size, 
@@ -68,7 +70,7 @@ class Trainer(object):
             self.val_dataloader = DataLoader(self.val_dataset,
                                             num_workers=args.Schedule.device.num_workers,
                                             batch_sampler=val_sampler,
-                                            collate_fn=collater
+                                            collate_fn=simple_collater
                                             )
 
         #----------- 4. build model -----------------------------------------------
@@ -145,30 +147,31 @@ class Trainer(object):
                 # torch.cuda.synchronize()
                 self.scheduler.step(len(self.train_dataloader)*epoch + i)
                 self.optimizer.zero_grad()
-                imgs = data['img']
-                bboxes = data['annot']
-                # to_img = transforms.ToPILImage()
-                # if True:
-                #     batch = imgs.size()[0]
-                #     # vis_imgs = imgs.numpy()
-                #     vis_boxes = bboxes.numpy()
-                #     for i in range(batch):
-                #         pic = to_img(imgs[i])
-                #         pic.save('dataset/oring.jpg')
-                #         vis_img = cv2.imread('dataset/oring.jpg')
-                #         # vis_img = vis_imgs[i].transpose(1,2,0)
-                #         vis_box = vis_boxes[i]
+                imgs = data['imgs']
+                bboxes = data['targets']
+                to_img = transforms.ToPILImage()
+                if True:
+                    batch = imgs.size()[0]
+                    # vis_imgs = imgs.numpy()
+                    vis_boxes = bboxes.numpy()
+                    for i in range(batch):
+                        pic = to_img(imgs[i])
+                        pic.save('dataset/oring.jpg')
+                        vis_img = cv2.imread('dataset/oring.jpg')
+                        # vis_img = vis_imgs[i].transpose(1,2,0)
+                        vis_box = vis_boxes[i]
                         
-                #         for item in range(vis_box.shape[0]):
-                #             if vis_box[item][-1] == -1:
-                #                 vis_box = vis_box[:item]
-                #                 break
-                #         _labels = vis_box[:, -1].astype(np.int32)
-                #         _probs = np.ones_like(_labels)
-                #         cateNames = ["toothbrush"]
-                #         visualize_boxes(image=vis_img, boxes=vis_box[:, :-1], labels=_labels, 
-                #                         probs=_probs, class_labels=cateNames)
-                #         cv2.imwrite("dataset/res"+ str(i) + '.jpg', vis_img)
+                        for item in range(vis_box.shape[0]):
+                            if vis_box[item][-1] == -1:
+                                vis_box = vis_box[:item]
+                                break
+                        _labels = vis_box[:, -1].astype(np.int32)
+                        _probs = np.ones_like(_labels)
+                        cateNames = ["toothbrush"]
+                        visualize_boxes(image=vis_img, boxes=vis_box[:, :-1], labels=_labels, 
+                                        probs=_probs, class_labels=cateNames)
+                        cv2.imwrite("dataset/res"+ str(i) + '.jpg', vis_img)
+                        print('done')
                 imgs = imgs.to(self.device)
                 bboxes = bboxes.to(self.device)
                 # print(i, imgs.shape)
