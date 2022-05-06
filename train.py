@@ -149,16 +149,13 @@ class Trainer(object):
                 self.optimizer.zero_grad()
                 imgs = data['imgs']
                 bboxes = data['targets']
-                to_img = transforms.ToPILImage()
                 if True:
                     batch = imgs.size()[0]
-                    # vis_imgs = imgs.numpy()
+                    vis_imgs = imgs.numpy()
                     vis_boxes = bboxes.numpy()
                     for i in range(batch):
-                        pic = to_img(imgs[i])
-                        pic.save('dataset/oring.jpg')
-                        vis_img = cv2.imread('dataset/oring.jpg')
-                        # vis_img = vis_imgs[i].transpose(1,2,0)
+                        vis_img = vis_imgs[i].transpose(1,2,0)
+                        cv2.imwrite("dataset/ori"+ str(i) + '.jpg', vis_img)
                         vis_box = vis_boxes[i]
                         
                         for item in range(vis_box.shape[0]):
@@ -168,6 +165,9 @@ class Trainer(object):
                         _labels = vis_box[:, -1].astype(np.int32)
                         _probs = np.ones_like(_labels)
                         cateNames = ["toothbrush"]
+                        from utils.visualize import vis
+                        # test_img = vis(img = vis_img, boxes = vis_box[:, :-1], scores = _probs,
+                        #                cls_ids = _labels)
                         visualize_boxes(image=vis_img, boxes=vis_box[:, :-1], labels=_labels, 
                                         probs=_probs, class_labels=cateNames)
                         cv2.imwrite("dataset/res"+ str(i) + '.jpg', vis_img)

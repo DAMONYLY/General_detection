@@ -53,7 +53,7 @@ Data:
       input_size: [640, 640]
       keep_ratio: False
       hsv_prob: 0.0
-      flip_prob: 1.0
+      flip_prob: 0.0
   test:
     dataset_path: ./dataset/voc2coco # path of dataset
     pipeline:
@@ -66,7 +66,7 @@ Schedule:
   resume_path: # if exist, means resume training from resume path
   device:
     gpus: 'cpu' # cuda device, i.e. 0 or 0,1,2,3 or cpu
-    batch_size: 2
+    batch_size: 10
     num_workers: 4
   seed: 10
   epochs: 100

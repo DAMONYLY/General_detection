@@ -15,7 +15,7 @@ import skimage.io
 import skimage.transform
 import skimage.color
 import skimage
-
+import cv2
 from PIL import Image
 from ..pipeline import Pipeline
 
@@ -70,12 +70,8 @@ class CocoDataset(Dataset):
     def load_image(self, image_index):
         image_info = self.coco.loadImgs(self.image_ids[image_index])[0]
         path       = os.path.join(self.root_dir, self.set_name, image_info['file_name'])
-        img = skimage.io.imread(path)
-
-        if len(img.shape) == 2:
-            img = skimage.color.gray2rgb(img)
-
-        return img.astype(np.float32)/255.0
+        img = cv2.imread(path)
+        return img
 
     def load_annotations(self, image_index):
         # get ground truth annotations
