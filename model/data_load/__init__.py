@@ -1,0 +1,1 @@
+from .collater import simple_collater

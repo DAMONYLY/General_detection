@@ -14,8 +14,8 @@ from utils.tools import *
 from tensorboardX import SummaryWriter
 from utils import model_info
 from utils.coco_dataloader import AspectRatioBasedSampler, Resizer, Augmenter, Normalizer, collater
-from model.data.dataset import CocoDataset
-from model.data import simple_collater
+from model.data_load.datasets import CocoDataset
+from model.data_load import simple_collater
 from eval import coco_eval
 from utils.optimizer import build_optimizer
 from utils.config import cfg, load_config
