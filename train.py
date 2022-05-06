@@ -17,6 +17,7 @@ from utils.coco_dataloader import AspectRatioBasedSampler, CocoDataset, Resizer,
 from eval import coco_eval
 from utils.optimizer import build_optimizer
 from utils.config import cfg, load_config
+from utils.draw_on_pic import visualize_boxes
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"]='1'
 
@@ -45,10 +46,12 @@ class Trainer(object):
         if self.dataset == 'coco':
             self.train_dataset = CocoDataset(args.Data.train.dataset_path,
                             set_name='train2017',
-                            transform=transforms.Compose([Normalizer(), Resizer()]))
+                            transform=transforms.Compose([Resizer()])
+                            )
             self.val_dataset = CocoDataset(args.Data.test.dataset_path,
                                     set_name='val2017',
-                                    transform=transforms.Compose([Normalizer(), Resizer()]))
+                                    transform=transforms.Compose([Normalizer(), Resizer()])
+                                    )
             train_sampler = AspectRatioBasedSampler(self.train_dataset, 
                                                     batch_size=args.Schedule.device.batch_size, 
                                                     drop_last=False
@@ -144,6 +147,28 @@ class Trainer(object):
                 self.optimizer.zero_grad()
                 imgs = data['img']
                 bboxes = data['annot']
+                # to_img = transforms.ToPILImage()
+                # if True:
+                #     batch = imgs.size()[0]
+                #     # vis_imgs = imgs.numpy()
+                #     vis_boxes = bboxes.numpy()
+                #     for i in range(batch):
+                #         pic = to_img(imgs[i])
+                #         pic.save('dataset/oring.jpg')
+                #         vis_img = cv2.imread('dataset/oring.jpg')
+                #         # vis_img = vis_imgs[i].transpose(1,2,0)
+                #         vis_box = vis_boxes[i]
+                        
+                #         for item in range(vis_box.shape[0]):
+                #             if vis_box[item][-1] == -1:
+                #                 vis_box = vis_box[:item]
+                #                 break
+                #         _labels = vis_box[:, -1].astype(np.int32)
+                #         _probs = np.ones_like(_labels)
+                #         cateNames = ["toothbrush"]
+                #         visualize_boxes(image=vis_img, boxes=vis_box[:, :-1], labels=_labels, 
+                #                         probs=_probs, class_labels=cateNames)
+                #         cv2.imwrite("dataset/res"+ str(i) + '.jpg', vis_img)
                 imgs = imgs.to(self.device)
                 bboxes = bboxes.to(self.device)
                 # print(i, imgs.shape)
@@ -170,8 +195,8 @@ class Trainer(object):
                     print(line +', ' + eta_str)
                     iter_time = 0
                     if self.tensorboard:
-                        self.scalar_summary("Train_loss/avg_loss", "Train", avg_loss[2], i + epoch * len(self.train_dataloader))
-                        self.scalar_summary("Train_loss/lr", "Train", self.optimizer.param_groups[0]['lr'], i+epoch * len(self.train_dataloader))
+                        self.scalar_summary("avg_loss", "Train", avg_loss[2], i + epoch * len(self.train_dataloader))
+                        self.scalar_summary("lr", "Train", self.optimizer.param_groups[0]['lr'], i+epoch * len(self.train_dataloader))
 
                 end_time = time.time()
                 iter_time += end_time - start_time
@@ -190,7 +215,7 @@ class Trainer(object):
                     if self.dataset == 'coco':
                         aps = coco_eval.evaluate_coco(self.val_dataset, self.model, save_path=self.save_path)
                 if self.tensorboard:
-                    self.scalar_summary("Train_loss/AP_50", "Train", aps["AP_50"], epoch)
+                    self.scalar_summary("AP_50", "Train", aps["AP_50"], epoch)
 
 
 if __name__ == "__main__":
@@ -199,17 +224,6 @@ if __name__ == "__main__":
     # sys.argv = ['train.py', '--b', '40', '--device', '0' ]
     default_config_parser = parser = argparse.ArgumentParser(description= 'General Detection config parser')
     parser.add_argument('--config', type=str, default='./config/test.yaml', help="train config file path")
-    parser.add_argument('--weight_path', type=str, default='', help='weight file path to pretrain')
-    parser.add_argument('--dataset', type=str, default='coco', help='dataset type')
-    parser.add_argument('--dataset_path', type=str, default='./dataset/voc2coco', help='path of dataset')
-    parser.add_argument('--resume_path', type=str, default='', help='path of model file to resume')
-    parser.add_argument('--save_path', type=str, default='', help='save model path')
-    parser.add_argument('--pre_train', type=bool, default=True, help='whether to use pre-trained models')
-    parser.add_argument('--tensorboard', action='store_true', help='whether to use tensorboard')
-    parser.add_argument('--batch_size', '--b', type=int, default=2,  help='mini batch number')
-    parser.add_argument('--device', default='cpu', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument('--val_intervals', type=int, default=5,  help='val intervals')
     opt = parser.parse_args()
     load_config(cfg, opt.config)
     # update_opt_to_cfg
