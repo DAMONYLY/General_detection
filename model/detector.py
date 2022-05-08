@@ -3,7 +3,6 @@
 import torch
 import torch.nn as nn
 
-from model.anchor.retina_anchor import Retina_Anchors
 from model.anchor.build_anchor import Anchors
 from model.post_processing.nms import multiclass_nms
 from .backbones import build_backbone
@@ -16,28 +15,17 @@ class General_detector(nn.Module):
     def __init__(self, cfg) -> None:
         super(General_detector, self).__init__()
         self.channel = 256
-        # self.batch_size = cfg.TRAIN.BATCH_SIZE.
         self.num_anchors = cfg.Model.anchors.num
-        self.train_img_shape = cfg.Train.TRAIN_IMG_SIZE
-        self.test_img_shape = cfg.Test.TEST_IMG_SIZE
         self.backbone = build_backbone(cfg)
-        
         self.fpn = build_fpn(cfg.Model.fpn, channel_in = self.backbone.fpn_size)
-
         self.reg_head, self.cls_head = build_head(cfg.Model.head, self.fpn.channel_out, self.num_anchors)
-
-        self.anchor = Anchors(cfg.Model.anchors)
-        # self.retina_anchor = Retina_Anchors()
-
-        # self.retinanet = model.resnet18(num_classes=20, pretrained=True)
         
-    def forward(self, images, type = 'train'):
+    def forward(self, images):
         """
         Arguments:
             images (list[Tensor] or ImageList): images to be processed
-            targets (list[BoxList]): ground-truth boxes present in the image (optional)
         Returns:
-            result (list[BoxList] or dict[Tensor]): the output from the model.
+            result (list[BoxList]): the output from the model.
                                                     [proposals_reg, proposals_cls]
         """
 
@@ -50,33 +38,6 @@ class General_detector(nn.Module):
         proposals_regs = torch.cat([self.reg_head(feature) for feature in features], dim=1)
         proposals_clses = torch.cat([self.cls_head(feature) for feature in features], dim=1)
 
-        
-        
-        if type == 'test':
-            anchors = self.anchor(images)
-            batch_boxes, batch_scores, batch_labels = [], [], []
-            for id in range(self.batch_size):
-                proposals_reg = proposals_regs[id]
-                proposals_cls = proposals_clses[id]
-                p_reg = yolo_decode(proposals_reg, anchors)
-                p_cls = proposals_cls.squeeze(0)
-                
-                # 2. 将超出图片边界的框截掉
-                p_reg = clip_bboxes(p_reg, images)
-                padding = p_cls.new_zeros(p_cls.shape[0], 1)
-                p_cls = torch.cat([p_cls, padding], dim=1)
-                # scores, labels, boxes = nms_boxes(p_reg, p_cls)
-                boxes, scores, labels = multiclass_nms(
-                    multi_bboxes = p_reg,
-                    multi_scores = p_cls,
-                    score_thr=0.05,
-                    nms_cfg=dict(type="nms", iou_threshold=0.5),
-                    max_num=100,
-                )
-                batch_boxes.append(boxes)
-                batch_scores.append(scores)
-                batch_labels.append(labels)
-            return batch_boxes, batch_scores, batch_labels
         return [proposals_regs, proposals_clses]
             
 

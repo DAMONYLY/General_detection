@@ -52,21 +52,22 @@ Data:
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
-      hsv_prob: 0.0
-      flip_prob: 0.0
+      hsv_prob: 1.0
+      flip_prob: 0.5
   test:
     dataset_path: ./dataset/voc2coco # path of dataset
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
+    nms_thre: 0.5
       
 
 
 Schedule:
-  resume_path: # if exist, means resume training from resume path
+  resume_path:  # if exist, means resume training from resume path
   device:
-    gpus: 'cpu' # cuda device, i.e. 0 or 0,1,2,3 or cpu
-    batch_size: 10
+    gpus: '0' # cuda device, i.e. 0 or 0,1,2,3 or cpu
+    batch_size: 20
     num_workers: 4
   seed: 10
   epochs: 100
@@ -82,7 +83,7 @@ Schedule:
     warmup: 2
 
 Log:
-  save_path: ./result # where to save model(.pth) and tensorboard data
+  save_path: ./results/eval_test # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 5 # epochs to val 
 

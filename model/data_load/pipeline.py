@@ -54,7 +54,8 @@ class Shape_transform:
         _, res_h, res_w = resized_img.shape
         sample['imgs'] = resized_img
         sample['targets'] = targets
-        sample['info'] = ([ori_h, ori_w], [res_h, res_w], r, self.input_size)
+        sample['info']['res_img_info'] = [res_h, res_w]
+        sample['info']['scale'] = r
 
         return sample
         

@@ -1,25 +1,20 @@
-
-from yaml import parse
 from model.loss_calculater import Loss_calculater
 from model.build_model import build
 import utils.gpu as gpu
 import torch
-from torchvision import transforms
 from torch.utils.data import DataLoader
 import time
 import datetime
 import argparse
-from utils.load_config import parse_args_and_yaml, Load_config
 from utils.tools import *
 from tensorboardX import SummaryWriter
 from utils import model_info
-from utils.coco_dataloader import AspectRatioBasedSampler, Resizer, Augmenter, Normalizer, collater
+
 from model.data_load.datasets import CocoDataset
-from model.data_load import simple_collater
-from eval import coco_eval
+from model.data_load import simple_collater, AspectRatioBasedSampler
+from eval.coco_eval import COCO_Evaluater
 from utils.optimizer import build_optimizer
 from utils.config import cfg, load_config
-from utils.draw_on_pic import visualize_boxes
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"]='1'
 
@@ -84,14 +79,16 @@ class Trainer(object):
         self.loss_calculater = Loss_calculater(args)
         # self.model.apply(tools.weights_init_normal)
 
-        #------------6. init optimizer, criterion, scheduler, weights-----------------------
+        #------------6. build loss calculater--------------------------------
+        self.evaluator = COCO_Evaluater(self.val_dataloader, self.device, args)
+        #------------7. init optimizer, criterion, scheduler, weights-----------------------
         self.optimizer, self.scheduler = build_optimizer(args, len(self.train_dataloader), self.model)
-        #------------7. resume training --------------------------------------
+        #------------8. resume training --------------------------------------
         if args.Schedule.resume_path:
             print('Start resume trainning from {}'.format(args.Schedule.resume_path))
             self.__load_model_weights(args.Schedule.resume_path)
 
-        #-------------8. DP mode ------------------------------
+        #-------------9. DP mode ------------------------------
         if self.device and torch.cuda.device_count() > 1:
             model = torch.nn.DataParallel(self.model)
             self.model = model.to(self.device)
@@ -149,31 +146,29 @@ class Trainer(object):
                 self.optimizer.zero_grad()
                 imgs = data['imgs']
                 bboxes = data['targets']
-                if True:
-                    batch = imgs.size()[0]
-                    vis_imgs = imgs.numpy()
-                    vis_boxes = bboxes.numpy()
-                    for i in range(batch):
-                        vis_img = vis_imgs[i].transpose(1,2,0)
-                        cv2.imwrite("dataset/ori"+ str(i) + '.jpg', vis_img)
-                        vis_box = vis_boxes[i]
+                # if True:
+                #     batch = imgs.size()[0]
+                #     vis_imgs = imgs.numpy()
+                #     vis_boxes = bboxes.numpy()
+                #     for i in range(batch):
+                #         vis_img = vis_imgs[i].transpose(1,2,0)
+                #         cv2.imwrite("dataset/ori"+ str(i) + '.jpg', vis_img)
+                #         vis_box = vis_boxes[i]
                         
-                        for item in range(vis_box.shape[0]):
-                            if vis_box[item][-1] == -1:
-                                vis_box = vis_box[:item]
-                                break
-                        _labels = vis_box[:, -1].astype(np.int32)
-                        _probs = np.ones_like(_labels)
-                        cateNames = ["toothbrush"]
-                        from utils.visualize import vis
-                        # test_img = vis(img = vis_img, boxes = vis_box[:, :-1], scores = _probs,
-                        #                cls_ids = _labels)
-                        visualize_boxes(image=vis_img, boxes=vis_box[:, :-1], labels=_labels, 
-                                        probs=_probs, class_labels=cateNames)
-                        cv2.imwrite("dataset/res"+ str(i) + '.jpg', vis_img)
-                        print('done')
+                #         for item in range(vis_box.shape[0]):
+                #             if vis_box[item][-1] == -1:
+                #                 vis_box = vis_box[:item]
+                #                 break
+                #         _labels = vis_box[:, -1].astype(np.int32)
+                #         _probs = np.ones_like(_labels)
+                #         cateNames = ["toothbrush"]
+                #         visualize_boxes(image=vis_img, boxes=vis_box[:, :-1], labels=_labels, 
+                #                         probs=_probs, class_labels=cateNames)
+                #         cv2.imwrite("dataset/res"+ str(i) + '.jpg', vis_img)
+                #         print('done')
                 imgs = imgs.to(self.device)
                 bboxes = bboxes.to(self.device)
+                # break
                 # print(i, imgs.shape)
                 features = self.model(imgs)
                 loss, loss_reg, loss_cls = self.loss_calculater(imgs, features, bboxes)
@@ -214,9 +209,7 @@ class Trainer(object):
                 print('best mAP : %g' % (self.best_mAP))
             if epoch > 0 and epoch % self.val_intervals == 0:
                 print('*'*20+"Validate"+'*'*20)
-                with torch.no_grad():
-                    if self.dataset == 'coco':
-                        aps = coco_eval.evaluate_coco(self.val_dataset, self.model, save_path=self.save_path)
+                aps = self.evaluator.evalute(self.model, self.save_path)
                 if self.tensorboard:
                     self.scalar_summary("AP_50", "Train", aps["AP_50"], epoch)
 
@@ -232,5 +225,5 @@ if __name__ == "__main__":
     # update_opt_to_cfg
     # cfg = parse_args_and_yaml(default_config_parser)
     # cfg = Load_config(opt, opt.config)
-    print(cfg)
+    # print(cfg)
     Trainer(args = cfg).train()
