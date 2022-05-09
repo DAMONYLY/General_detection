@@ -1,7 +1,5 @@
 import torch
-import config.cfg_example as cfg
 from torchvision.ops import nms
-strides = [32, 16, 8]
 
 def yolo_decode(feature, anchor):
     """
@@ -36,7 +34,7 @@ def yolo_decode(feature, anchor):
 
     return pred_reg
 
-def clip_bboxes(boxes, images):
+def clip_bboxes(boxes, image_size):
     """
     Args:
         boxes (torch.tensor): output of decoded pred. [all_num_pred, reg+obj+cls].
@@ -45,7 +43,7 @@ def clip_bboxes(boxes, images):
     output:
         boxes (torch.tensor): after clip. [all_num_pred, reg+obj+cls], in xyxy form.
     """
-    batch_size, num_channel, height, width = images.shape
+    height, width = image_size
 
     boxes[:, 0] = torch.clamp(boxes[:, 0], min=0)
     boxes[:, 1] = torch.clamp(boxes[:, 1], min=0)
@@ -54,50 +52,3 @@ def clip_bboxes(boxes, images):
     boxes[:, 3] = torch.clamp(boxes[:, 3], max=height)
 
     return boxes
-
-def nms_boxes(regression, classification, nms_score = 0.5):
-    """
-    Args:
-        classification (torch.tensor)[all_num_pred, cls]
-        regression (torch.tensor)[all_num_pred, reg+obj]
-        nms_score (float)
-
-    Returns:
-
-    """
-    finalResult = [[], [], []]
-
-    finalScores = torch.Tensor([])
-    finalAnchorBoxesIndexes = torch.Tensor([]).long()
-    finalAnchorBoxesCoordinates = torch.Tensor([])
-
-    if torch.cuda.is_available():
-        finalScores = finalScores.cuda()
-        finalAnchorBoxesIndexes = finalAnchorBoxesIndexes.cuda()
-        finalAnchorBoxesCoordinates = finalAnchorBoxesCoordinates.cuda()
-
-    for i in range(classification.shape[-1]):
-        scores = torch.squeeze(classification[:, i])
-        scores_over_thresh = (scores > 0.05)
-        if scores_over_thresh.sum() == 0:
-            # no boxes to NMS, just continue
-            continue
-
-        scores = scores[scores_over_thresh]
-        anchorBoxes = torch.squeeze(regression)
-        anchorBoxes = anchorBoxes[scores_over_thresh]
-        anchors_nms_idx = nms(anchorBoxes, scores, nms_score)
-
-        finalResult[0].extend(scores[anchors_nms_idx])
-        finalResult[1].extend(torch.tensor([i] * anchors_nms_idx.shape[0]))
-        finalResult[2].extend(anchorBoxes[anchors_nms_idx])
-
-        finalScores = torch.cat((finalScores, scores[anchors_nms_idx]))
-        finalAnchorBoxesIndexesValue = torch.tensor([i] * anchors_nms_idx.shape[0])
-        if torch.cuda.is_available():
-            finalAnchorBoxesIndexesValue = finalAnchorBoxesIndexesValue.cuda()
-
-        finalAnchorBoxesIndexes = torch.cat((finalAnchorBoxesIndexes, finalAnchorBoxesIndexesValue))
-        finalAnchorBoxesCoordinates = torch.cat((finalAnchorBoxesCoordinates, anchorBoxes[anchors_nms_idx]))
-
-    return [finalScores, finalAnchorBoxesIndexes, finalAnchorBoxesCoordinates]

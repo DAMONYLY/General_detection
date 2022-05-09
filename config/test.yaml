@@ -34,8 +34,8 @@ Model:
     strides: [8, 16, 32, 64, 128]
     sizes: [32, 64, 128, 256, 512]
     ratios: [0.5, 1, 2]
-    scales: [2 ** 0] # [2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)]
-    num: 3
+    scales: [2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)]
+    num: 9
   metrics: yolo
   loss:
     reg_loss: 
@@ -64,7 +64,7 @@ Data:
 
 
 Schedule:
-  resume_path:  # if exist, means resume training from resume path
+  resume_path:  ./results/eval_test_9/backup_epoch4.pt # if exist, means resume training from resume path
   device:
     gpus: '0' # cuda device, i.e. 0 or 0,1,2,3 or cpu
     batch_size: 20
@@ -83,7 +83,7 @@ Schedule:
     warmup: 2
 
 Log:
-  save_path: ./results/eval_test # where to save model(.pth) and tensorboard data
+  save_path: ./results/eval_test_9 # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 5 # epochs to val 
 

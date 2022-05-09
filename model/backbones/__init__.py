@@ -28,7 +28,7 @@ def build_backbone(cfg):
         else:
             raise ValueError('Unsupported model depth, must be one of 18, 34, 50, 101, 152')
     elif name.lower() == 'shufflenetv2':
-        size = cfg.Model.backbone.model_size
+        size = getattr(cfg.Model.backbone, 'model_size', '1.0x')
         return ShuffleNetV2(model_size=size, pretrained=pre_train)
     else:
         raise NotImplementedError

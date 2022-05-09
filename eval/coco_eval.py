@@ -1,4 +1,6 @@
+from cProfile import label
 from pycocotools.cocoeval import COCOeval
+import torchvision
 import json
 import torch
 from tqdm import tqdm
@@ -28,8 +30,7 @@ class COCO_Evaluater:
             with torch.no_grad():
                 imgs = data['imgs'].to(self.device)
                 outputs = model(imgs)
-                batch_boxes, batch_scores, batch_labels = self.postprocess(imgs, 
-                                                                           self.anchor,
+                batch_boxes, batch_scores, batch_labels = self.postprocess(self.anchor,
                                                                            outputs[0],
                                                                            outputs[1])
                 data_list.extend(self.convert_to_pycocotools(data, batch_boxes, 
@@ -103,10 +104,11 @@ class COCO_Evaluater:
         return results
     
     
-    def postprocess(self, imgs, anchor_generater, proposals_regs, proposals_clses):
-        anchors = anchor_generater(imgs)
+    def postprocess(self, anchor_generater, proposals_regs, proposals_clses):
+        anchors = anchor_generater(self.img_size, self.device, proposals_regs.dtype)
         batch_boxes, batch_scores, batch_labels = [], [], []
-        batch_size, _, h, w = imgs.shape
+        assert len(proposals_regs) == len(proposals_clses)
+        batch_size = len(proposals_regs)
         for id in range(batch_size):
             proposals_reg = proposals_regs[id]
             proposals_cls = proposals_clses[id]
@@ -114,10 +116,11 @@ class COCO_Evaluater:
             p_cls = proposals_cls.squeeze(0)
             
             # 2. 将超出图片边界的框截掉
-            p_reg = clip_bboxes(p_reg, imgs)
+            p_reg = clip_bboxes(p_reg, self.img_size)
+            
             padding = p_cls.new_zeros(p_cls.shape[0], 1)
             p_cls = torch.cat([p_cls, padding], dim=1)
-            # scores, labels, boxes = nms_boxes(p_reg, p_cls)
+
             boxes, scores, labels = multiclass_nms(
                 multi_bboxes = p_reg,
                 multi_scores = p_cls,

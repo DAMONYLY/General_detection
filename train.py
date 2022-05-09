@@ -79,7 +79,7 @@ class Trainer(object):
         self.loss_calculater = Loss_calculater(args)
         # self.model.apply(tools.weights_init_normal)
 
-        #------------6. build loss calculater--------------------------------
+        #------------6. build evaluator--------------------------------
         self.evaluator = COCO_Evaluater(self.val_dataloader, self.device, args)
         #------------7. init optimizer, criterion, scheduler, weights-----------------------
         self.optimizer, self.scheduler = build_optimizer(args, len(self.train_dataloader), self.model)

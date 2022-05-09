@@ -2,19 +2,17 @@
 "2021年11月24日20:31:54"
 import torch
 import torch.nn as nn
-
-from model.anchor.build_anchor import Anchors
-from model.post_processing.nms import multiclass_nms
 from .backbones import build_backbone
 from .head import build_head
 from .necks import build_fpn
-from model.post_processing.yolo_decoder import yolo_decode, clip_bboxes, nms_boxes
-
 
 class General_detector(nn.Module):
+    """
+    General object detector for extracting image feature information only. 
+    Input image, return the result after backbone, neck, head.
+    """
     def __init__(self, cfg) -> None:
         super(General_detector, self).__init__()
-        self.channel = 256
         self.num_anchors = cfg.Model.anchors.num
         self.backbone = build_backbone(cfg)
         self.fpn = build_fpn(cfg.Model.fpn, channel_in = self.backbone.fpn_size)
@@ -22,78 +20,18 @@ class General_detector(nn.Module):
         
     def forward(self, images):
         """
-        Arguments:
-            images (list[Tensor] or ImageList): images to be processed
+        Args:
+            images (Tensor): images to be processed, Shape: [B, C, H, W] 
         Returns:
-            result (list[BoxList]): the output from the model.
-                                                    [proposals_reg, proposals_cls]
+            list[Tensor, Tensor]: the feature extraction results for regression and classification, respectively
         """
 
         self.batch_size, _, self.image_w, self.image_h = images.shape
-
         features = self.backbone(images) 
-
         features = self.fpn(features) 
-        
         proposals_regs = torch.cat([self.reg_head(feature) for feature in features], dim=1)
         proposals_clses = torch.cat([self.cls_head(feature) for feature in features], dim=1)
 
         return [proposals_regs, proposals_clses]
             
-
-    def load_darknet_weights(self, weight_file, cutoff=52):
-        "https://github.com/ultralytics/yolov3/blob/master/models.py"
-        import torch
-        import numpy as np
-        from model.layers.conv_module import Convolutional
-        print("load darknet weights : ", weight_file)
-
-        with open(weight_file, 'rb') as f:
-            _ = np.fromfile(f, dtype=np.int32, count=5)
-            weights = np.fromfile(f, dtype=np.float32)
-        count = 0
-        ptr = 0
-        for m in self.modules():
-            if isinstance(m, Convolutional):
-                # only initing backbone conv's weights
-                if count == cutoff:
-                    break
-                count += 1
-
-                conv_layer = m._Convolutional__conv
-                if m.norm == "bn":
-                    # Load BN bias, weights, running mean and running variance
-                    bn_layer = m._Convolutional__norm
-                    num_b = bn_layer.bias.numel()  # Number of biases
-                    # Bias
-                    bn_b = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(bn_layer.bias.data)
-                    bn_layer.bias.data.copy_(bn_b)
-                    ptr += num_b
-                    # Weight
-                    bn_w = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(bn_layer.weight.data)
-                    bn_layer.weight.data.copy_(bn_w)
-                    ptr += num_b
-                    # Running Mean
-                    bn_rm = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(bn_layer.running_mean)
-                    bn_layer.running_mean.data.copy_(bn_rm)
-                    ptr += num_b
-                    # Running Var
-                    bn_rv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(bn_layer.running_var)
-                    bn_layer.running_var.data.copy_(bn_rv)
-                    ptr += num_b
-
-                    print("loading weight {}".format(bn_layer))
-                else:
-                    # Load conv. bias
-                    num_b = conv_layer.bias.numel()
-                    conv_b = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(conv_layer.bias.data)
-                    conv_layer.bias.data.copy_(conv_b)
-                    ptr += num_b
-                # Load conv. weights
-                num_w = conv_layer.weight.numel()
-                conv_w = torch.from_numpy(weights[ptr:ptr + num_w]).view_as(conv_layer.weight.data)
-                conv_layer.weight.data.copy_(conv_w)
-                ptr += num_w
-
-                print("loading weight {}".format(conv_layer))
 
