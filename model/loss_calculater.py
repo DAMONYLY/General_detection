@@ -16,7 +16,7 @@ class Loss_calculater(nn.Module):
     def __init__(self, cfg) -> None:
         super(Loss_calculater, self).__init__()
         self.anchors = Anchors(cfg.Model.anchors)
-        self.label_assign = build_metrics(cfg, cfg.Model.metrics)
+        self.label_assign = build_metrics(cfg)
         self.loss = build_loss(cfg.Model.loss)
         self.img_size = cfg.Data.train.pipeline.input_size
         

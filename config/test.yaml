@@ -36,7 +36,10 @@ Model:
     ratios: [0.5, 1, 2]
     scales: [2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)]
     num: 9
-  metrics: yolo
+  metrics: 
+    name: Max_iou
+    pos_iou_thr: 0.5
+    neg_iou_thr: 0.3
   loss:
     reg_loss: 
       name: SmoothL1 #[SmoothL1, IOU]

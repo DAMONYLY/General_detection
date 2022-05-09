@@ -222,8 +222,5 @@ if __name__ == "__main__":
     parser.add_argument('--config', type=str, default='./config/test.yaml', help="train config file path")
     opt = parser.parse_args()
     load_config(cfg, opt.config)
-    # update_opt_to_cfg
-    # cfg = parse_args_and_yaml(default_config_parser)
-    # cfg = Load_config(opt, opt.config)
     # print(cfg)
     Trainer(args = cfg).train()
