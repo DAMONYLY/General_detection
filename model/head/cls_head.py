@@ -1,25 +1,28 @@
 import torch.nn as nn
-import math
+
 class ClassificationModel(nn.Module):
-    def __init__(self, num_features_in, num_anchors=3, num_classes=80, prior=0.01, feature_size=256):
+    def __init__(self, num_features_in, num_anchors, cfg):
         super(ClassificationModel, self).__init__()
 
-        self.num_classes = num_classes
+        self.num_classes = cfg.out_channel
+        feature_size = cfg.mid_channel
         self.num_anchors = num_anchors
-
-        self.conv1 = nn.Conv2d(num_features_in, feature_size, kernel_size=3, padding=1)
-        self.act1 = nn.ReLU()
-
-        self.conv2 = nn.Conv2d(feature_size, feature_size, kernel_size=3, padding=1)
-        self.act2 = nn.ReLU()
-
-        self.conv3 = nn.Conv2d(feature_size, feature_size, kernel_size=3, padding=1)
-        self.act3 = nn.ReLU()
-
-        self.conv4 = nn.Conv2d(feature_size, feature_size, kernel_size=3, padding=1)
-        self.act4 = nn.ReLU()
-
-        self.output = nn.Conv2d(feature_size, num_anchors * num_classes, kernel_size=3, padding=1)
+        self.stack_layers = cfg.get('stack_layers', 4)
+        
+        self.cls_convs = nn.ModuleList()
+        
+        for i in range(self.stack_layers):
+            channel = num_features_in if i == 0 else feature_size
+            self.cls_convs.append(
+                nn.Conv2d(channel, feature_size, kernel_size=3, padding=1))
+            self.cls_convs.append(
+                nn.BatchNorm2d(feature_size))
+            self.cls_convs.append(
+                nn.ReLU())
+            
+        # self.conv1 = nn.Conv2d(num_features_in, feature_size, kernel_size=3, padding=1)
+        # self.act1 = nn.ReLU()
+        self.output = nn.Conv2d(feature_size, num_anchors * self.num_classes, kernel_size=3, padding=1)
         self.output_act = nn.Sigmoid()
         # for m in self.modules():
         #     if isinstance(m, nn.Conv2d):
@@ -40,19 +43,11 @@ class ClassificationModel(nn.Module):
 
 
     def forward(self, x):
-        out = self.conv1(x)
-        out = self.act1(out)
-
-        out = self.conv2(out)
-        out = self.act2(out)
-
-        out = self.conv3(out)
-        out = self.act3(out)
-
-        out = self.conv4(out)
-        out = self.act4(out)
-
-        out = self.output(out)
+        
+        cls_feature = x
+        for conv in self.cls_convs:
+            cls_feature = conv(cls_feature)
+        out = self.output(cls_feature)
         out = self.output_act(out)
 
         # out is B x C x W x H, with C = n_classes + n_anchors

@@ -11,16 +11,18 @@ DATA = {"CLASSES":['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
 # model
 MODEL = {
     "name": 'General', # [YOLO, General]
-    "backbone": 'Darknet53', # [Darknet53, Resnet]
+    "backbone": 'Resnet', # [Darknet53, Resnet, shufflenetv2]
     'depth': 18, # depth of ResNet model [18, 34, 50, 101, 152]
     "fpn": 'fpn',
     "out_stride": [8, 16, 32], # TODO: 用于输出多少x的特征图用来检测
-    'head': 'normal',
+    'head': {
+            'type': 'normal',
+            'reg_head': 4},
     "ANCHORS":[[[3.625, 2.8125], [4.875, 6.1875], [11.65625, 10.1875]],  # Anchors for big obj
             [[1.875, 3.8125], [3.875, 2.8125], [3.6875, 7.4375]],  # Anchors for medium obj
             [[1.25, 1.625], [2.0, 3.75], [4.125, 2.875]]] ,# Anchors for small obj
     "STRIDES":[8, 16, 32],
-    "ANCHORS_PER_SCLAE":3,
+    "ANCHORS_PER_SCLAE": 9,
     "metrics": 'yolo',
     "loss": 'fun',
          }
@@ -35,9 +37,9 @@ TRAIN = {
          "NUMBER_WORKERS":4,
          "MOMENTUM":0.9,
          "WEIGHT_DECAY":0.0001,
-         "LR_INIT":1e-5,
+         "LR_INIT":0.15,
          "LR_END":1e-6,
-         "WARMUP_EPOCHS":0  # or None
+         "WARMUP_EPOCHS":2  # or None
          }
 
 

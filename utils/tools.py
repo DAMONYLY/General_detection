@@ -45,118 +45,13 @@ def xywh2xyxy(x):
     return y
 
 
-def wh_iou(box1, box2):
-    # box1 shape : [2]
-    # box2 shape : [bs*N, 2]
-    box2 = box2.t()
-
-    # w, h = box1
-    w1, h1 = box1[0], box1[1]
-    w2, h2 = box2[0], box2[1]
-
-    # Intersection area
-    inter_area = torch.min(w1, w2) * torch.min(h1, h2)
-
-    # Union Area
-    union_area = (w1 * h1 + 1e-16) + w2 * h2 - inter_area
-
-    return (inter_area / union_area)  # iou shape : [bs*N]
-
-
-def bbox_iou(box1, box2, mode="xyxy"):
-    """
-    numpy version iou, and use for nms
-    """
-    # Get the coordinates of bounding boxes
-
-    if mode == "xyxy":
-        # x1, y1, x2, y2 = box1
-        b1_x1, b1_y1, b1_x2, b1_y2 = box1[..., 0], box1[..., 1], box1[..., 2], box1[..., 3]
-        b2_x1, b2_y1, b2_x2, b2_y2 = box2[..., 0], box2[..., 1], box2[..., 2], box2[..., 3]
-    else:
-        # x, y, w, h = box1
-        b1_x1, b1_x2 = box1[..., 0] - box1[..., 2] / 2, box1[..., 0] + box1[..., 2] / 2
-        b1_y1, b1_y2 = box1[..., 1] - box1[..., 3] / 2, box1[..., 1] + box1[..., 3] / 2
-        b2_x1, b2_x2 = box2[..., 0] - box2[..., 2] / 2, box2[..., 0] + box2[..., 2] / 2
-        b2_y1, b2_y2 = box2[..., 1] - box2[..., 3] / 2, box2[..., 1] + box2[..., 3] / 2
-
-    # Intersection area
-    inter_area = np.maximum((np.minimum(b1_x2, b2_x2) - np.maximum(b1_x1, b2_x1)), 0.0) * \
-                 np.maximum(np.minimum(b1_y2, b2_y2) - np.maximum(b1_y1, b2_y1), 0.0)
-
-    # Union Area
-    union_area = ((b1_x2 - b1_x1) * (b1_y2 - b1_y1) + 1e-16) + \
-                 (b2_x2 - b2_x1) * (b2_y2 - b2_y1) - inter_area
-
-    return inter_area / union_area  # iou
-
-
-def iou_xywh_numpy(boxes1, boxes2):
-    """
-    :param boxes1: boxes1和boxes2的shape可以不相同，但是需要满足广播机制
-    :param boxes2: 且需要保证最后一维为坐标维，以及坐标的存储结构为(x,y,w,h)，其中(x,y)是bbox的中心坐标
-    :return: 返回boxes1和boxes2的IOU，IOU的shape为boxes1和boxes2广播后的shape[:-1]
-    """
-    boxes1 = np.array(boxes1)
-    boxes2 = np.array(boxes2)
-
-    boxes1_area = boxes1[..., 2] * boxes1[..., 3]
-    boxes2_area = boxes2[..., 2] * boxes2[..., 3]
-
-    # 分别计算出boxes1和boxes2的左上角坐标、右下角坐标
-    # 存储结构为(xmin, ymin, xmax, ymax)，其中(xmin,ymin)是bbox的左上角坐标，(xmax,ymax)是bbox的右下角坐标
-    boxes1 = np.concatenate([boxes1[..., :2] - boxes1[..., 2:] * 0.5,
-                             boxes1[..., :2] + boxes1[..., 2:] * 0.5], axis=-1)
-    boxes2 = np.concatenate([boxes2[..., :2] - boxes2[..., 2:] * 0.5,
-                             boxes2[..., :2] + boxes2[..., 2:] * 0.5], axis=-1)
-
-    # 计算出boxes1与boxes1相交部分的左上角坐标、右下角坐标
-    left_up = np.maximum(boxes1[..., :2], boxes2[..., :2])
-    right_down = np.minimum(boxes1[..., 2:], boxes2[..., 2:])
-
-    # 因为两个boxes没有交集时，(right_down - left_up) < 0，所以maximum可以保证当两个boxes没有交集时，它们之间的iou为0
-    inter_section = np.maximum(right_down - left_up, 0.0)
-    inter_area = inter_section[..., 0] * inter_section[..., 1]
-    union_area = boxes1_area + boxes2_area - inter_area
-    IOU = 1.0 * inter_area / union_area
-    return IOU
-
-
-def iou_xyxy_numpy(boxes1, boxes2):
-    """
-    :param boxes1: boxes1和boxes2的shape可以不相同，但是需要满足广播机制
-    :param boxes2: 且需要保证最后一维为坐标维，以及坐标的存储结构为(xmin, ymin, xmax, ymax)
-    :return: 返回boxes1和boxes2的IOU，IOU的shape为boxes1和boxes2广播后的shape[:-1]
-    """
-    boxes1 = np.array(boxes1)
-    boxes2 = np.array(boxes2)
-
-    boxes1_area = (boxes1[..., 2] - boxes1[..., 0]) * (boxes1[..., 3] - boxes1[..., 1])
-    boxes2_area = (boxes2[..., 2] - boxes2[..., 0]) * (boxes2[..., 3] - boxes2[..., 1])
-
-    # 计算出boxes1和boxes2相交部分的左上角坐标、右下角坐标
-    left_up = np.maximum(boxes1[..., :2], boxes2[..., :2])
-    right_down = np.minimum(boxes1[..., 2:], boxes2[..., 2:])
-
-    # 计算出boxes1和boxes2相交部分的宽、高
-    # 因为两个boxes没有交集时，(right_down - left_up) < 0，所以maximum可以保证当两个boxes没有交集时，它们之间的iou为0
-    inter_section = np.maximum(right_down - left_up, 0.0)
-    inter_area = inter_section[..., 0] * inter_section[..., 1]
-    union_area = boxes1_area + boxes2_area - inter_area
-    IOU = 1.0 * inter_area / union_area
-    return IOU
-
-
 def iou_xyxy_torch(boxes1, boxes2):
     """
-    TRUE
-    :param boxes1: boxes1和boxes2的shape可以不相同，但是需要满足广播机制，且需要是Tensor
-    :param boxes2: 且需要保证最后一维为坐标维，以及坐标的存储结构为(xmin, ymin, xmax, ymax)
-    :return: 返回boxes1和boxes2的IOU，IOU的shape为boxes1和boxes2广播后的shape[:-1]
+    [N, 4] with [M, 4] return [N, M]
     """
 
-    boxes1_area = torch.prod(boxes1[:, 2:] - boxes1[:, :2], 1)
-    boxes2_area = torch.prod(boxes2[:, 2:] - boxes2[:, :2], 1)
+    boxes1_area = torch.prod(boxes1[:, 2:] - boxes1[:, :2], -1)
+    boxes2_area = torch.prod(boxes2[:, 2:] - boxes2[:, :2], -1)
 
     # 计算出boxes1与boxes2相交部分的左上角坐标、右下角坐标
     left_up = torch.max(boxes1[:, None, :2], boxes2[None, :, :2])
@@ -164,7 +59,7 @@ def iou_xyxy_torch(boxes1, boxes2):
 
     # 因为两个boxes没有交集时，(right_down - left_up) < 0，所以maximum可以保证当两个boxes没有交集时，它们之间的iou为0
     inter_section = torch.max(right_down - left_up, torch.zeros_like(left_up))
-    inter_area = torch.prod(inter_section, 2)
+    inter_area = torch.prod(inter_section, -1)
 
     union_area = boxes1_area[:, None] + boxes2_area[None, :] - inter_area
     IOU = 1.0 * inter_area / union_area
@@ -190,43 +85,54 @@ def iou_xyxy_torch_batch(boxes1, boxes2):
     IOU = 1.0 * inter_area / union_area
     return IOU
 
-def iou_xyxy_torch(boxes1, boxes2):
+
+
+def IOU_xyxy_torch_same(boxes1, boxes2):
     """
-    [N, 4] with [M, 4] return [N, M]
+    [N, 4] with [N, 4] return [N, 1]
     """
 
     boxes1_area = torch.prod(boxes1[:, 2:] - boxes1[:, :2], -1)
     boxes2_area = torch.prod(boxes2[:, 2:] - boxes2[:, :2], -1)
 
     # 计算出boxes1与boxes2相交部分的左上角坐标、右下角坐标
-    left_up = torch.max(boxes1[:, None, :2], boxes2[None, :, :2])
-    right_down = torch.min(boxes1[:, None, 2:], boxes2[None, :, 2:])
+    left_up = torch.max(boxes1[:, :2], boxes2[:, :2])
+    right_down = torch.min(boxes1[:, 2:], boxes2[:, 2:])
 
     # 因为两个boxes没有交集时，(right_down - left_up) < 0，所以maximum可以保证当两个boxes没有交集时，它们之间的iou为0
     inter_section = torch.max(right_down - left_up, torch.zeros_like(left_up))
     inter_area = torch.prod(inter_section, -1)
 
-    union_area = boxes1_area[:, None] + boxes2_area[None, :] - inter_area
+    union_area = boxes1_area + boxes2_area - inter_area
     IOU = 1.0 * inter_area / union_area
     return IOU
-def calc_iou(a, b):
-    area = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
 
-    iw = torch.min(torch.unsqueeze(a[:, 2], dim=1), b[:, 2]) - torch.max(torch.unsqueeze(a[:, 0], 1), b[:, 0])
-    ih = torch.min(torch.unsqueeze(a[:, 3], dim=1), b[:, 3]) - torch.max(torch.unsqueeze(a[:, 1], 1), b[:, 1])
+def GIOU_xyxy_torch_same(boxes1, boxes2):
+    """
+    [N, 4] with [N, 4] return [N, 1]
+    """
 
-    iw = torch.clamp(iw, min=0)
-    ih = torch.clamp(ih, min=0)
+    boxes1_area = torch.prod(boxes1[:, 2:] - boxes1[:, :2], -1)
+    boxes2_area = torch.prod(boxes2[:, 2:] - boxes2[:, :2], -1)
 
-    ua = torch.unsqueeze((a[:, 2] - a[:, 0]) * (a[:, 3] - a[:, 1]), dim=1) + area - iw * ih
+    # 计算出boxes1与boxes2相交部分的左上角坐标、右下角坐标
+    left_up = torch.max(boxes1[:, :2], boxes2[:, :2])
+    right_down = torch.min(boxes1[:, 2:], boxes2[:, 2:])
 
-    ua = torch.clamp(ua, min=1e-8)
+    # 因为两个boxes没有交集时，(right_down - left_up) < 0，所以maximum可以保证当两个boxes没有交集时，它们之间的iou为0
+    inter_section = torch.max(right_down - left_up, torch.zeros_like(left_up))
+    inter_area = torch.prod(inter_section, -1)
 
-    intersection = iw * ih
+    union_area = boxes1_area + boxes2_area - inter_area
+    IOU = 1.0 * inter_area / union_area
 
-    IoU = intersection / ua
+    enclose_left_up = torch.min(boxes1[..., :2], boxes2[..., :2])
+    enclose_right_down = torch.max(boxes1[..., 2:], boxes2[..., 2:])
+    enclose_section = torch.max(enclose_right_down - enclose_left_up, torch.zeros_like(enclose_right_down))
+    enclose_area = enclose_section[..., 0] * enclose_section[..., 1]
 
-    return IoU
+    GIOU = IOU - 1.0 * (enclose_area - union_area) / enclose_area
+    return GIOU
 
 
 def GIOU_xywh_torch(boxes1, boxes2):

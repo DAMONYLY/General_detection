@@ -1,27 +1,18 @@
-'''
-2021年11月29日17:00:15
-通用label assign
-yolo形式
-'''
 import torch.nn as nn
 import torch
-import sys
-from model.anchor.build_anchor import Anchors
-sys.path.append('/raid/yaoliangyong/General_detection/')
+
 from utils.tools import *
+from ..post_processing.yolo_decoder import yolo_decode
 
 
 
-class label_assign(nn.Module):
-    def __init__(self, cfg, metrics_type='iou', pos_iou_thr = 0.5, neg_iou_thr = 0.3) -> None:
-        super(label_assign, self).__init__()
-        self.metrics = metrics_type
+class Max_iou_assigner(nn.Module):
+    def __init__(self, cfg, pos_iou_thr, neg_iou_thr) -> None:
+        super(Max_iou_assigner, self).__init__()
+
         self.pos_iou_thr = pos_iou_thr
         self.neg_iou_thr = neg_iou_thr
-        self.strides = [32, 16, 8]
-        # self.anchor = self.origin_to_grid(cfg.MODEL['ANCHORS'], cfg.TRAIN['TRAIN_IMG_SIZE'], self.strides)
-        # self.anchor = torch.tensor(cfg.MODEL['ANCHORS'])
-        # self.num_anchor = self.anchor.shape[1]
+        self.IOU_loss = True if 'iou' in cfg.Model.loss.reg_loss.name.lower() else False
 
 
     def forward(self, anchors, targets, regressions, classifications):
@@ -60,22 +51,19 @@ class label_assign(nn.Module):
             target = targets[batch_id]
             target = target[target[:, 4] != -1]
 
-
+            if target.shape[0] == 0:
+                # print(target.shape)
+                continue
             # 计算IOU between anchor and target
-            # overlaps = iou_xyxy_torch_batch(anchor, bbox_annotation)
             overlaps = iou_xyxy_torch(anchor, target[..., :4]) # [N, M]
-            
             max_overlaps, argmax_overlaps = overlaps.max(dim=1)
 
             neg_mask = max_overlaps < self.neg_iou_thr
             pos_mask = max_overlaps > self.pos_iou_thr
             
-
             assign_targets = target[argmax_overlaps]
-
-            
+         
             # bulid cls targets and preds
-            # 
             pos_cls_preds = classification[pos_mask]
             pos_cls_targets = torch.zeros_like(pos_cls_preds)
             
@@ -83,14 +71,24 @@ class label_assign(nn.Module):
             neg_cls_targets = torch.zeros_like(neg_cls_preds)
             pos_cls_targets[torch.arange(pos_cls_targets.shape[0]), assign_targets[pos_mask, 4].long()] = 1
 
-            cls_preds = torch.cat([pos_cls_preds, neg_cls_preds], dim = 0)
-            cls_targets = torch.cat([pos_cls_targets, neg_cls_targets], dim = 0)
             # bulid reg targets and preds
             reg_preds = regression[pos_mask]
-            reg_targets = self.encode(anchor[pos_mask], assign_targets[pos_mask])
-            # reg_targets = reg_targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).to(device)
+            neg_reg_preds = regression[neg_mask]
 
-
+            if self.IOU_loss:
+                reg_preds = yolo_decode(reg_preds, anchor[pos_mask])
+                reg_preds = IOU_xyxy_torch_same(reg_preds, assign_targets[pos_mask, :4])
+                reg_targets = torch.ones_like(reg_preds)
+                pos_cls_targets[torch.arange(pos_cls_targets.shape[0]), assign_targets[pos_mask, 4].long()] = reg_preds.detach()
+                
+                neg_reg_preds = yolo_decode(neg_reg_preds, anchor[neg_mask])
+                neg_reg_preds = IOU_xyxy_torch_same(neg_reg_preds, assign_targets[neg_mask, :4])
+                neg_cls_targets[torch.arange(neg_cls_targets.shape[0]), assign_targets[neg_mask, 4].long()] = neg_reg_preds.detach()
+            else:
+                reg_targets = self.encode(anchor[pos_mask], assign_targets[pos_mask])
+            
+            cls_preds = torch.cat([pos_cls_preds, neg_cls_preds], dim = 0)
+            cls_targets = torch.cat([pos_cls_targets, neg_cls_targets], dim = 0)
             
             cls_preds_assign.append(cls_preds)
             reg_preds_assign.append(reg_preds)
@@ -168,25 +166,3 @@ class label_assign(nn.Module):
             (targets_dx, targets_dy, targets_dw, targets_dh), dim=-1
         )
         return reg_targets
-from torch.utils.data import Dataset, DataLoader
-from utils.datasets import VocDataset
-if __name__ == "__main__":
-
-    voc_dataset = VocDataset(anno_file_type="train", img_size=448)
-    dataloader = DataLoader(voc_dataset, shuffle=True, batch_size=1, num_workers=0)
-    test = label_assign('1',0.1,0.2)
-
-    for i, (img, label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes) in enumerate(dataloader):
-        if i==0:
-            print(img.shape)
-            print(label_sbbox.shape)
-            print(label_mbbox.shape)
-            print(label_lbbox.shape)
-            print(sbboxes.shape)
-            print(mbboxes.shape)
-            print(lbboxes.shape)
-        anchors = torch.rand_like(sbboxes)
-        targets = torch.rand((1,150,5))[:, :10]
-        targets[:, :, -1] *= 10 
-        # label_sbbox = label_sbbox.view(1, 56, 56, -1)
-        out = test.forward(anchors.squeeze(0), targets, 1, 1)

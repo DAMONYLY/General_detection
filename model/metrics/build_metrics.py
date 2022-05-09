@@ -3,12 +3,13 @@
 用于 label assign 包括centerness, iou, ATSS
 
 '''
-from model.metrics.general_metrics import label_assign
+from ..metrics import Max_iou_assigner
 
 
-def build_metrics(cfg, type):
-    if type == 'yolo':
-        # metrics = label_assign('iou')
-        return label_assign(cfg, 'iou')
+def build_metrics(cfg):
+    if cfg.Model.metrics.name == 'Max_iou':
+        pos_iou_thr = getattr(cfg.Model.metrics, 'pos_iou_thr', 0.5)
+        neg_iou_thr = getattr(cfg.Model.metrics, 'neg_iou_thr', 0.3)
+        return Max_iou_assigner(cfg, pos_iou_thr, neg_iou_thr)
     else:
         raise NotImplementedError
