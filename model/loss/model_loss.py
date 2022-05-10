@@ -10,11 +10,8 @@ class Focal_Loss(nn.Module):
 
     def forward(self, input, target):
         loss = self.__loss(input=input, target=target)
-        # focal_weight = torch.where(torch.eq(target, 1.), 1. - input, input)
         focal_weight = torch.where(torch.ge(target, 0.5), 1. - input, input)
         loss *= self.__alpha * torch.pow(focal_weight, self.__gamma)
-
-        # return loss.sum()/torch.clamp(torch.sum(target == 1).float(), min=1.0)
         return loss.sum()/torch.clamp(torch.sum(target >= 0.5).float(), min=1.0)
 class IOU_Loss(nn.Module):
     def __init__(self, reduction="mean"):
@@ -32,8 +29,8 @@ class Loss(nn.Module):
         super(Loss, self).__init__()
         if cls_loss == 'Focal':
             self.cls_loss = Focal_Loss()
-        elif cls_loss == 'BCEWithLogitsLoss':
-            self.cls_loss = nn.BCEWithLogitsLoss(reduction='mean')
+        elif cls_loss == 'BCELoss':
+            self.cls_loss = nn.BCELoss(reduction='mean')
         else:
             raise NotImplementedError
         self.cls_ratio = cls_ratio

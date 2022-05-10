@@ -1,1 +1,1 @@
-from .boxes import xyxy2cxcywh, cxcywh2xyxy
+from .boxes import xyxy2cxcywh, bbox2delta

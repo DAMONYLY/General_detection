@@ -25,15 +25,12 @@ class Trainer(object):
         init_seeds(args.Schedule.seed)
         #----------- 2. get gpu info -----------------------------------------------
         self.device = gpu.select_device(args.Schedule.device.gpus)
+        
         self.start_epoch = 0
         self.best_mAP = 0.
         self.DP = False
         self.epochs = args.Schedule.epochs
-        
-        # self.weight_path = args.weight_path
-
         self.save_path = args.Log.save_path
-        self.multi_scale_train = args.Train.MULTI_SCALE_TRAIN
         self.dataset = args.Data.dataset_type
         self.val_intervals = args.Log.val_intervals
         self.tensorboard = args.Log.tensorboard
@@ -71,7 +68,7 @@ class Trainer(object):
         #----------- 4. build model -----------------------------------------------
         self.model = build(args).to(self.device)
         
-        self.model_info = model_info.get_model_info(self.model, args.Test.TEST_IMG_SIZE)
+        self.model_info = model_info.get_model_info(self.model, args.Data.test.pipeline.input_size)
         print("Model Summary: {}".format(self.model_info))
         # self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
 

@@ -67,7 +67,7 @@ Data:
 
 
 Schedule:
-  resume_path:  ./results/eval_test_9/backup_epoch4.pt # if exist, means resume training from resume path
+  resume_path:  # if exist, means resume training from resume path
   device:
     gpus: '0' # cuda device, i.e. 0 or 0,1,2,3 or cpu
     batch_size: 20
@@ -91,28 +91,3 @@ Log:
   val_intervals: 5 # epochs to val 
 
 
-# train
-Train:
-  TRAIN_IMG_SIZE: 320
-  AUGMENT: False
-  MULTI_SCALE_TRAIN: False
-  IOU_THRESHOLD_LOSS: 0.5
-  EPOCHS: 100
-  NUMBER_WORKERS: 4
-  MOMENTUM: 0.9
-  WEIGHT_DECAY: 0.0001
-  LR_INIT: 0.15
-  LR_END: 0.000001
-  WARMUP_EPOCHS: 2  # or None
-
-
-
-# test
-Test:
-  TEST_IMG_SIZE: 544
-  BATCH_SIZE: 1
-  NUMBER_WORKERS: 0
-  CONF_THRESH: 0.01
-  NMS_THRESH: 0.5
-  MULTI_SCALE_TEST: False
-  FLIP_TEST: False

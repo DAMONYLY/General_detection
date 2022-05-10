@@ -66,7 +66,7 @@ if __name__ == '__main__':
     import torch.optim as optim
 
     optimizer = optim.SGD(net.parameters(), 1e-4, 0.9, weight_decay=0.0005)
-    scheduler = CosineDecayLR(optimizer, 50*2068, 1e-4, 1e-6, 2*2068)
+    scheduler = CosineDecay_LR(optimizer, 50*2068, 1e-4, 1e-6, 2*2068)
 
     # Plot lr schedule
     y = []
