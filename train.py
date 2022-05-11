@@ -165,7 +165,7 @@ class Trainer(object):
                 #         print('done')
                 imgs = imgs.to(self.device)
                 bboxes = bboxes.to(self.device)
-                # break
+                break
                 # print(i, imgs.shape)
                 features = self.model(imgs)
                 loss, loss_reg, loss_cls = self.loss_calculater(imgs, features, bboxes)

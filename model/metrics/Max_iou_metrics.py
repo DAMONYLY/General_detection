@@ -110,7 +110,9 @@ class Max_iou_assigner(nn.Module):
 
         cls_targets_assign = torch.cat(cls_targets_assign)
         reg_targets_assign = torch.cat(reg_targets_assign)
-
+        # print('pos:', reg_preds_assign.shape[0], 
+        #       'neg:', cls_preds_assign.shape[0] - reg_preds_assign.shape[0],
+        #       'ignore:', anchors.shape[0] * anchors.shape[1] - cls_preds_assign.shape[0]) 
 
         return cls_preds_assign, reg_preds_assign, cls_targets_assign, reg_targets_assign
         

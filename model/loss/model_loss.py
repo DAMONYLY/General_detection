@@ -1,23 +1,42 @@
 import torch.nn as nn
 import torch
 class Focal_Loss(nn.Module):
-    def __init__(self, gamma=2.0, alpha=0.25, reduction="none"):
+    """Focal Loss for Dense Object Detection
+    https://arxiv.org/abs/1708.02002
+
+    Args:
+        
+    """
+    def __init__(self, gamma=2.0, alpha=0.25, reduction="avg_pos"):
         super(Focal_Loss, self).__init__()
-        self.__gamma = gamma
-        self.__alpha = alpha
-        # self.__loss = nn.BCEWithLogitsLoss(reduction=reduction)
-        self.__loss = nn.BCELoss(reduction=reduction)
+        self.gamma = gamma
+        self.alpha = alpha
+        self.reduction = reduction
+        self.loss = nn.BCELoss(reduction='none')
 
     def forward(self, input, target):
-        loss = self.__loss(input=input, target=target)
-        focal_weight = torch.where(torch.ge(target, 0.5), 1. - input, input)
-        loss *= self.__alpha * torch.pow(focal_weight, self.__gamma)
-        return loss.sum()/torch.clamp(torch.sum(target >= 0.5).float(), min=1.0)
+        loss = self.loss(input=input, target=target)
+        # focal_weight = torch.where(torch.ge(target, 0.5), input, 1. - input)
+        focal_weight = target * input + (1 - target) * (1 - input)
+        alpha = self.alpha * target + (1 - self.alpha) * (1 - target)
+        loss *= alpha * torch.pow(1.0 - focal_weight, self.gamma)
+        assert self.reduction in ['none', 'mean', 'sum', 'avg_pos']
+        if self.reduction == 'none':
+            return loss
+        elif self.reduction == 'mean':
+            return loss.mean()
+        elif self.reduction == 'sum':
+            return loss.sum()
+        elif self.reduction == 'avg_pos':
+            num_pos = torch.clamp(torch.sum(target >= 0.5).float(), min=1.0)
+            return loss.sum()/num_pos
+    
 class IOU_Loss(nn.Module):
     def __init__(self, reduction="mean"):
         super(IOU_Loss, self).__init__()
         self.reduction = reduction
     def forward(self, input, target):
+        
         loss = target - input
         if self.reduction == 'mean':
             return loss.mean()
