@@ -1,5 +1,5 @@
 from model.loss_calculater import Loss_calculater
-from model.build_model import build
+from model.build_model import build_model
 import utils.gpu as gpu
 import torch
 from torch.utils.data import DataLoader
@@ -66,7 +66,7 @@ class Trainer(object):
                                             )
 
         #----------- 4. build model -----------------------------------------------
-        self.model = build(args).to(self.device)
+        self.model = build_model(args).to(self.device)
         
         self.model_info = model_info.get_model_info(self.model, args.Data.test.pipeline.input_size)
         print("Model Summary: {}".format(self.model_info))
@@ -165,7 +165,7 @@ class Trainer(object):
                 #         print('done')
                 imgs = imgs.to(self.device)
                 bboxes = bboxes.to(self.device)
-                break
+                # break
                 # print(i, imgs.shape)
                 features = self.model(imgs)
                 loss, loss_reg, loss_cls = self.loss_calculater(imgs, features, bboxes)

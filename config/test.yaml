@@ -43,10 +43,10 @@ Model:
   loss:
     reg_loss: 
       name: SmoothL1 #[SmoothL1, IOU]
-      ratio: 10
+      ratio: 1
     cls_loss: 
       name: Focal
-      ratio: 0.1
+      ratio: 1
 
 Data:
   dataset_type: coco # type of dataset, now only support coco
@@ -67,27 +67,27 @@ Data:
 
 
 Schedule:
-  resume_path: ./results/test111/backup_epoch3.pt # if exist, means resume training from resume path
+  resume_path:  # if exist, means resume training from resume path
   device:
     gpus: '0' # cuda device, i.e. 0 or 0,1,2,3 or cpu
     batch_size: 20
     num_workers: 4
   seed: 10
-  epochs: 100
+  epochs: 15
   optimizer:
     name: SGD
-    lr: 0.05
+    lr: 0.01
     momentum: 0.9
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
-    milestones: [5,50,85]
+    milestones: [8,11]
     gamma: 0.1
-    warmup: 2
+    warmup: 1
 
 Log:
-  save_path: ./results/test111 # where to save model(.pth) and tensorboard data
+  save_path: ./results/fun # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
-  val_intervals: 5 # epochs to val 
+  val_intervals: 1 # epochs to val 
 
 

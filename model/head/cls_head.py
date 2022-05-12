@@ -1,4 +1,7 @@
 import torch.nn as nn
+import torch
+import math
+
 
 class ClassificationModel(nn.Module):
     def __init__(self, num_features_in, num_anchors, cfg):
@@ -31,16 +34,14 @@ class ClassificationModel(nn.Module):
         #     elif isinstance(m, nn.BatchNorm2d):
         #         m.weight.data.fill_(1)
         #         m.bias.data.zero_()
-        # self.init_weights()
-    def init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                normal_init(m, std=0.01)
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
+        self.init_weights(1e-2)
+    def init_weights(self, prior_prob):
+        print('init cls head')
+        # for conv in self.reg_head.modules():
+        b = self.output.bias.view(self.num_anchors, -1)
+        b.data.fill_(-math.log((1 - prior_prob) / prior_prob))
+        self.output.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
             
-
 
     def forward(self, x):
         
