@@ -11,9 +11,11 @@ def build_fpn(cfg, channel_in = [1024, 512, 256]):
         FPN (module)
     """
     if cfg.name == 'yolo_fpn':
-        return FPN_YOLOV3()
+        neck = FPN_YOLOV3()
     elif cfg.name == 'fpn':
         channel_out = cfg.get('channel_out', 256)
-        return FPN(channel_in, channel_out)
+        neck = FPN(channel_in, channel_out)
     else:
         raise NotImplementedError
+    neck.init_weights()
+    return neck

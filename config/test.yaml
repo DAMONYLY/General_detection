@@ -73,7 +73,7 @@ Schedule:
     batch_size: 20
     num_workers: 4
   seed: 10
-  epochs: 15
+  epochs: 50
   optimizer:
     name: SGD
     lr: 0.01
@@ -81,13 +81,13 @@ Schedule:
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
-    milestones: [8,11]
+    milestones: [35,45]
     gamma: 0.1
     warmup: 1
 
 Log:
-  save_path: ./results/fun # where to save model(.pth) and tensorboard data
+  save_path: ./results/fun_final_2 # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
-  val_intervals: 1 # epochs to val 
+  val_intervals: 2 # epochs to val 
 
 

@@ -12,7 +12,9 @@ def init_yolo(M):
 def build_model(cfg):
     if cfg.Model.name == 'General':
         model = General_detector(cfg)
+        model.apply(init_yolo)
     else:
         raise NotImplementedError
     # model.init_head(1e-2)
+    
     return model

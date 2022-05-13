@@ -19,7 +19,10 @@ def build_head(cfg, channel, num_anchor):
         
         #build cls head
         classificationModel = ClassificationModel(channel, num_anchor, cfg.cls_head)
-        return regressionModel, classificationModel
+        # return regressionModel, classificationModel
     else:
         raise NotImplementedError
+    regressionModel.init_weights()
+    classificationModel.init_weights()
+    return regressionModel, classificationModel
     

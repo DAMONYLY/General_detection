@@ -171,7 +171,7 @@ class Trainer(object):
                 loss, loss_reg, loss_cls = self.loss_calculater(imgs, features, bboxes)
 
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
+                # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
                 self.optimizer.step()
 
                 # Update running mean loss
@@ -197,7 +197,6 @@ class Trainer(object):
                 iter_time += end_time - start_time
                 start_time = time.time()
                 # break
-            # self.scheduler.step(avg_loss[2])
             mAP = 0
             if self.save_path:
                 if not os.path.exists(self.save_path):

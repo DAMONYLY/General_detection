@@ -25,17 +25,11 @@ class ClassificationModel(nn.Module):
             
         # self.conv1 = nn.Conv2d(num_features_in, feature_size, kernel_size=3, padding=1)
         # self.act1 = nn.ReLU()
-        self.output = nn.Conv2d(feature_size, num_anchors * self.num_classes, kernel_size=3, padding=1)
+        self.cls_convs.append(nn.Conv2d(feature_size, num_anchors * self.num_classes, kernel_size=3, padding=1))
         self.output_act = nn.Sigmoid()
-        # for m in self.modules():
-        #     if isinstance(m, nn.Conv2d):
-        #         n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-        #         m.weight.data.normal_(0, math.sqrt(2. / n))
-        #     elif isinstance(m, nn.BatchNorm2d):
-        #         m.weight.data.fill_(1)
-        #         m.bias.data.zero_()
-        self.init_weights(1e-2)
-    def init_weights(self, prior_prob):
+
+        # self.init_weights(1e-2)
+    def init_weights2(self, prior_prob):
         print('init cls head')
         # for conv in self.reg_head.modules():
         b = self.output.bias.view(self.num_anchors, -1)
@@ -43,13 +37,18 @@ class ClassificationModel(nn.Module):
         self.output.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
             
 
+    def init_weights(self):
+        for m in self.cls_convs.modules():
+            if isinstance(m, nn.Conv2d):
+                normal_init(m, std=0.01)
+        print("Finish initialize cls Head.")
     def forward(self, x):
         
         cls_feature = x
         for conv in self.cls_convs:
             cls_feature = conv(cls_feature)
-        out = self.output(cls_feature)
-        out = self.output_act(out)
+        # out = self.output(cls_feature)
+        out = self.output_act(cls_feature)
 
         # out is B x C x W x H, with C = n_classes + n_anchors
         out = out.permute(0, 2, 3, 1)

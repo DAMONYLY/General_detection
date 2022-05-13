@@ -50,6 +50,7 @@ class FPN(nn.Module):
         self.P7_2 = nn.Conv2d(channel_out, channel_out, kernel_size=3, stride=2, padding=1)
 
     def init_weights(self):
+        print('init fpn with test1')
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 xavier_init(m, distribution="uniform")
