@@ -43,7 +43,7 @@ Model:
   loss:
     reg_loss: 
       name: SmoothL1 #[SmoothL1, IOU]
-      ratio: 1
+      ratio: 10
     cls_loss: 
       name: Focal
       ratio: 1
@@ -83,10 +83,10 @@ Schedule:
     name: MultiStep_LR
     milestones: [35,45]
     gamma: 0.1
-    warmup: 1
+    warmup: 2
 
 Log:
-  save_path: ./results/fun_final_2 # where to save model(.pth) and tensorboard data
+  save_path: ./results/fun_final_4 # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 2 # epochs to val 
 

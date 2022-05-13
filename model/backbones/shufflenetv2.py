@@ -171,7 +171,6 @@ class ShuffleNetV2(nn.Module):
                 nn.ReLU(inplace=True),
             )
             self.stage4.add_module("conv5", conv5)
-        self._initialize_weights(pretrained)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -185,20 +184,6 @@ class ShuffleNetV2(nn.Module):
         return tuple(output)
 
     def _initialize_weights(self, pretrain=True):
-        print("init weights...")
-        for name, m in self.named_modules():
-            if isinstance(m, nn.Conv2d):
-                if "first" in name:
-                    nn.init.normal_(m.weight, 0, 0.01)
-                else:
-                    nn.init.normal_(m.weight, 0, 1.0 / m.weight.shape[1])
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0.0001)
-                nn.init.constant_(m.running_mean, 0)
         if pretrain:
             url = model_urls["shufflenetv2_{}".format(self.model_size)]
             if url is not None:

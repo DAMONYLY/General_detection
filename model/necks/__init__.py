@@ -15,7 +15,8 @@ def build_fpn(cfg, channel_in = [1024, 512, 256]):
     elif cfg.name == 'fpn':
         channel_out = cfg.get('channel_out', 256)
         neck = FPN(channel_in, channel_out)
+        neck.init_weights()
     else:
         raise NotImplementedError
-    neck.init_weights()
+    
     return neck

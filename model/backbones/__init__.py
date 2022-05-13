@@ -5,7 +5,7 @@ from .shufflenetv2 import ShuffleNetV2
 
 def build_backbone(cfg):
     name = cfg.Model.backbone.name
-    pre_train = getattr(cfg, 'pre_train', False)
+    pre_train = getattr(cfg.Model.backbone, 'pretrain', False)
     if name == 'Darknet53':
         model = Darknet53()
         if cfg.pre_train:
@@ -14,21 +14,33 @@ def build_backbone(cfg):
     elif name.lower() == 'resnet':
         assert 'depth' in cfg.Model.backbone, 'must give the depth of resnet model in cfg file.'
         depth = cfg.Model.backbone.depth
-    
         if depth == 18:
-            return resnet18(pretrained=pre_train)
+            model = resnet18()
         elif depth == 34:
-            return resnet34(pretrained=pre_train)
+            model = resnet34()
         elif depth == 50:
-            return resnet50(pretrained=pre_train)
+            model = resnet50()
         elif depth == 101:
-            return resnet101(pretrained=pre_train)
+            model = resnet101()
         elif depth == 152:
-            return resnet152(pretrained=pre_train)
+            model = resnet152()
         else:
             raise ValueError('Unsupported model depth, must be one of 18, 34, 50, 101, 152')
+        if pre_train:
+            name = name.lower() + str(depth)
+            print(f'=> loading {name} backbone from {model_urls[name]}')
+            model.load_state_dict(model_zoo.load_url(model_urls[name], model_dir='.'), strict=False)
+        else:
+            print('Not loading the pretained model...')
+        return model
     elif name.lower() == 'shufflenetv2':
         size = getattr(cfg.Model.backbone, 'model_size', '1.0x')
-        return ShuffleNetV2(model_size=size, pretrained=pre_train)
+        model = ShuffleNetV2(model_size=size)
+        if pre_train:
+            model._initialize_weights(pretrain=pre_train)
+        else:
+            print('Not loading the pretained model...')
+        return model
     else:
-        raise NotImplementedError
+        raise NotImplementedError(f'{name} model not support yet...')
+
