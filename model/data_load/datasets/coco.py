@@ -45,11 +45,12 @@ class CocoDataset(Dataset):
         self.classes             = {}
         self.coco_labels         = {}
         self.coco_labels_inverse = {}
+        self.class_names = []
         for c in categories:
             self.coco_labels[len(self.classes)] = c['id']
             self.coco_labels_inverse[c['id']] = len(self.classes)
             self.classes[c['name']] = len(self.classes)
-
+            self.class_names.append(c['name'])        
         # also load the reverse (label -> name)
         self.labels = {}
         for key, value in self.classes.items():

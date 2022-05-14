@@ -16,7 +16,7 @@ class Loss_calculater(nn.Module):
     def __init__(self, cfg) -> None:
         super(Loss_calculater, self).__init__()
         self.anchors = Anchors(cfg.Model.anchors)
-        self.label_assign = build_metrics(cfg)
+        self.assigner = build_metrics(cfg)
         self.loss = build_loss(cfg.Model.loss)
         self.img_size = cfg.Data.train.pipeline.input_size
         
@@ -36,7 +36,7 @@ class Loss_calculater(nn.Module):
         anchors = self.anchors(self.img_size, device=proposals_reg.device, dtype=proposals_reg.dtype)
 
         cls_pred, reg_pred, cls_target, reg_target = \
-                            self.label_assign(anchors, targets, proposals_reg, proposals_cls)
+                            self.assigner(anchors, targets, proposals_reg, proposals_cls)
 
         losses, losses_reg, losses_cls = \
                             self.loss(cls_pred, reg_pred, cls_target, reg_target) # reg_loss, cls_loss, conf_loss

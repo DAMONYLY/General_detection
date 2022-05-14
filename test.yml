@@ -1,0 +1,119 @@
+Classes:
+  name:
+  - aeroplane
+  - bicycle
+  - bird
+  - boat
+  - bottle
+  - bus
+  - car
+  - cat
+  - chair
+  - cow
+  - diningtable
+  - dog
+  - horse
+  - motorbike
+  - person
+  - pottedplant
+  - sheep
+  - sofa
+  - train
+  - tvmonitor
+  num: 20
+Data:
+  dataset_type: coco
+  test:
+    dataset_path: ./dataset/voc2coco
+    nms_thre: 0.5
+    pipeline:
+      input_size:
+      - 640
+      - 640
+      keep_ratio: false
+  train:
+    dataset_path: ./dataset/voc2coco
+    pipeline:
+      flip_prob: 0.5
+      hsv_prob: 1.0
+      input_size:
+      - 640
+      - 640
+      keep_ratio: false
+Log:
+  save_path: ./results/fun_final_5
+  tensorboard: true
+  val_intervals: 2
+Model:
+  anchors:
+    num: 9
+    ratios:
+    - 0.5
+    - 1
+    - 2
+    scales:
+    - 4
+    - 5
+    - 6
+    strides:
+    - 8
+    - 16
+    - 32
+    - 64
+    - 128
+  backbone:
+    depth: 50
+    name: Resnet
+    pretrain: true
+    weight_path: null
+  fpn:
+    channel_out: 256
+    name: fpn
+    out_stride:
+    - 8
+    - 16
+    - 32
+  head:
+    cls_head:
+      mid_channel: 256
+      out_channel: 20
+      stack_layers: 4
+    head_shared: true
+    name: normal
+    reg_head:
+      mid_channel: 256
+      out_channel: 4
+      stack_layers: 4
+  loss:
+    cls_loss:
+      name: Focal
+      ratio: 1
+    reg_loss:
+      name: SmoothL1
+      ratio: 10
+  metrics:
+    name: Max_iou
+    neg_iou_thr: 0.4
+    pos_iou_thr: 0.5
+  name: General
+Schedule:
+  device:
+    batch_size: 20
+    gpus: '0'
+    num_workers: 4
+  epochs: 50
+  lr_schedule:
+    gamma: 0.1
+    milestones:
+    - 35
+    - 45
+    name: MultiStep_LR
+    warmup: 2
+  optimizer:
+    lr: 0.01
+    momentum: 0.9
+    name: SGD
+    weight_decay: 0.0001
+  resume_path: null
+  seed: 10
+

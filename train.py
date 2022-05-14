@@ -15,6 +15,7 @@ from model.data_load import simple_collater, AspectRatioBasedSampler
 from eval.coco_eval import COCO_Evaluater
 from utils.optimizer import build_optimizer
 from utils.config import cfg, load_config
+from utils.visualize import *
 # import os
 # os.environ["CUDA_VISIBLE_DEVICES"]='1'
 
@@ -141,45 +142,20 @@ class Trainer(object):
                 # torch.cuda.synchronize()
                 self.scheduler.step(len(self.train_dataloader)*epoch + i)
                 self.optimizer.zero_grad()
-                imgs = data['imgs']
-                bboxes = data['targets']
-                # if True:
-                #     batch = imgs.size()[0]
-                #     vis_imgs = imgs.numpy()
-                #     vis_boxes = bboxes.numpy()
-                #     for i in range(batch):
-                #         vis_img = vis_imgs[i].transpose(1,2,0)
-                #         cv2.imwrite("dataset/ori"+ str(i) + '.jpg', vis_img)
-                #         vis_box = vis_boxes[i]
-                        
-                #         for item in range(vis_box.shape[0]):
-                #             if vis_box[item][-1] == -1:
-                #                 vis_box = vis_box[:item]
-                #                 break
-                #         _labels = vis_box[:, -1].astype(np.int32)
-                #         _probs = np.ones_like(_labels)
-                #         cateNames = ["toothbrush"]
-                #         visualize_boxes(image=vis_img, boxes=vis_box[:, :-1], labels=_labels, 
-                #                         probs=_probs, class_labels=cateNames)
-                #         cv2.imwrite("dataset/res"+ str(i) + '.jpg', vis_img)
-                #         print('done')
-                imgs = imgs.to(self.device)
-                bboxes = bboxes.to(self.device)
+                imgs = data['imgs'].to(self.device)
+                bboxes = data['targets'].to(self.device)
                 # break
-                # print(i, imgs.shape)
+                # show_dataset(self.train_dataloader, './test', num = 2)
                 features = self.model(imgs)
                 loss, loss_reg, loss_cls = self.loss_calculater(imgs, features, bboxes)
 
                 loss.backward()
-                # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
                 self.optimizer.step()
-
                 # Update running mean loss
                 loss_items = torch.tensor([loss_reg.item(), loss_cls.item(), loss.item()])
                 avg_loss = (avg_loss * i + loss_items) / (i + 1)
 
                 print_fre = 10
-                # Print batch results
                 if i != 0 and i % print_fre == 0:
                     iter_time = iter_time / print_fre
                     eta_seconds = (all_iter - (epoch - self.start_epoch) * len(self.train_dataloader) - (i - 1)) * iter_time
@@ -196,7 +172,6 @@ class Trainer(object):
                 end_time = time.time()
                 iter_time += end_time - start_time
                 start_time = time.time()
-                # break
             mAP = 0
             if self.save_path:
                 if not os.path.exists(self.save_path):
@@ -209,14 +184,12 @@ class Trainer(object):
                 if self.tensorboard:
                     self.scalar_summary("AP_50", "Train", aps["AP_50"], epoch)
 
-
 if __name__ == "__main__":
 
     import sys 
     # sys.argv = ['train.py', '--b', '40', '--device', '0' ]
     default_config_parser = parser = argparse.ArgumentParser(description= 'General Detection config parser')
-    parser.add_argument('--config', type=str, default='./config/test.yaml', help="train config file path")
+    parser.add_argument('--config', type=str, default='test.yml', help="train config file path")
     opt = parser.parse_args()
-    load_config(cfg, opt.config)
-    # print(cfg)
+    load_config(cfg, opt.config, save=True)
     Trainer(args = cfg).train()
