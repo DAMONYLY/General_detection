@@ -189,7 +189,7 @@ if __name__ == "__main__":
     import sys 
     # sys.argv = ['train.py', '--b', '40', '--device', '0' ]
     default_config_parser = parser = argparse.ArgumentParser(description= 'General Detection config parser')
-    parser.add_argument('--config', type=str, default='test.yml', help="train config file path")
+    parser.add_argument('--config', type=str, default='./config/test.yaml', help="train config file path")
     opt = parser.parse_args()
     load_config(cfg, opt.config, save=True)
     Trainer(args = cfg).train()

@@ -39,6 +39,8 @@ Model:
     name: Max_iou
     pos_iou_thr: 0.5
     neg_iou_thr: 0.4
+  sample:
+    name: Retinanet
   loss:
     reg_loss: 
       name: SmoothL1 #[SmoothL1, IOU]
@@ -78,12 +80,12 @@ Schedule:
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
-    milestones: [35,45]
+    milestones: [25,45]
     gamma: 0.1
     warmup: 2
 
 Log:
-  save_path: ./results/fun_final_5 # where to save model(.pth) and tensorboard data
+  save_path: ./results/test # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 2 # epochs to val 
 
