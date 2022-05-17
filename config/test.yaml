@@ -36,9 +36,10 @@ Model:
     scales: [4, 5, 6]
     num: 9
   metrics: 
-    name: Max_iou
+    name: ATSS # [Max_iou, ATSS]
     pos_iou_thr: 0.5
     neg_iou_thr: 0.4
+    topk: 9
   sample:
     name: Retinanet
   loss:
@@ -75,17 +76,17 @@ Schedule:
   epochs: 50
   optimizer:
     name: SGD
-    lr: 0.01
+    lr: 0.001
     momentum: 0.9
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
     milestones: [25,45]
     gamma: 0.1
-    warmup: 2
+    warmup: 1
 
 Log:
-  save_path: ./results/test # where to save model(.pth) and tensorboard data
+  save_path: ./results/ATSS_test # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 2 # epochs to val 
 

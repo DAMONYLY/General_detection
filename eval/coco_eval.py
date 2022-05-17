@@ -30,9 +30,11 @@ class COCO_Evaluater:
             with torch.no_grad():
                 imgs = data['imgs'].to(self.device)
                 outputs = model(imgs)
+                proposals_regs = torch.cat(outputs[0], dim=1)
+                proposals_clses = torch.cat(outputs[1], dim=1)
                 batch_boxes, batch_scores, batch_labels = self.postprocess(self.anchor,
-                                                                           outputs[0],
-                                                                           outputs[1])
+                                                                           proposals_regs,
+                                                                           proposals_clses)
                 data_list.extend(self.convert_to_pycocotools(data, batch_boxes, 
                                                              batch_scores, batch_labels))
         if not len(data_list):

@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch
-from model.metrics.assign_results import AssignResult
+from .assign_results import AssignResult
 
 from utils.tools import *
 from ..post_processing.yolo_decoder import yolo_decode
@@ -26,7 +26,7 @@ class Max_iou_assigner(nn.Module):
         self.IOU_loss = True if 'iou' in cfg.Model.loss.reg_loss.name.lower() else False
         self.num_classes = cfg.Classes.num
         
-    def forward(self, bboxes, targets):
+    def assign(self, bboxes, targets, num_level_bboxes):
         """
         Arguments:
             anchors(tensor): Generated anchors, shape: [N, 4] in xyxy form.

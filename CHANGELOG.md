@@ -3,10 +3,25 @@
 # TODO, 转为log存储训练信息
 # TODO, ATSS
 
+## 2022年5月17日22:47:21
+1. 新增ATSS_assigner部分代码。
+
+## 2022年5月15日22:45:04
+1. 优化了loss_calculater部分代码结构；  
+   结构更加标准，为了方便后续的ATSS_assigner的更新。
+2. Commit: 3c5a4156c152c0ebc2a99281a301145d2bf0f8e2
+
+## 2022年5月14日22:40:01
+1. 新增训练yaml文件保存功能。
+2. 新增数据集图片检查功能；  
+   可以查看data_agument之后的图片和标注。
+3. Commit: 3efd68e1fa5c0660907df0ea65af1d6f496435b4
+
 ## 2022年5月14日17:40:01
 1. 删除了部分冗余代码；
 2. 新增了模型初始化的功能，现在基本上MAP能对应的上mmdetection；
 3. 新增训练yaml文件保存功能。
+4. Commit: 69fc45a21a20864009cbd0df44aae127c41228db
 
 ## 2022年5月8日22:47:44
 1. 升级了COCO_evaluate的部分；  

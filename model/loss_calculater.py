@@ -31,7 +31,9 @@ class Loss_calculater(nn.Module):
         """
 
         proposals_reg, proposals_cls = features
-        
+        num_level_bboxes = [feature.size(1) for feature in proposals_reg]
+        proposals_reg = torch.cat(proposals_reg, dim=1)
+        proposals_cls = torch.cat(proposals_cls, dim=1)
         assert self.img_size[0] == imgs.size()[-2:][0] and \
                self.img_size[1] == imgs.size()[-2:][1]
         assert imgs.size(0) == proposals_reg.size(0) == proposals_cls.size(0) == targets.size(0)
@@ -45,7 +47,7 @@ class Loss_calculater(nn.Module):
         cls_weights = []
         num_pos_inds = 0
         for batch in range(batch_size):
-            assigned_results = self.assigner(bboxes[batch], targets[batch])
+            assigned_results = self.assigner.assign(bboxes[batch], targets[batch], num_level_bboxes)
             sampled_results = self.sampler.sample(assigned_results)
             
             reg_targets.append(sampled_results.bbox_targets)
