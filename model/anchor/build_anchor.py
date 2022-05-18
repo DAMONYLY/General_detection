@@ -6,16 +6,11 @@ class Anchors(nn.Module):
         super(Anchors, self).__init__()
 
         self.strides = cfg.strides
-        if isinstance(cfg.sizes, int):
-            self.sizes = torch.tensor([cfg.sizes for _ in self.strides])
-        else:
-            self.sizes = torch.tensor(cfg.sizes)
+        self.base_sizes = [stride for stride in self.strides
+                           ] if not hasattr(cfg, 'base_sizes') else cfg.base_sizes
         self.ratios = torch.tensor(cfg.ratios)
-        scales = cfg.scales
-        if isinstance(scales[0], str):
-            self.scales = torch.tensor([eval(scale) for scale in scales])
-        else:
-            self.scales = torch.tensor(scales)
+
+        self.scales = torch.tensor(cfg.scales)
         self.num_anchors = len(self.ratios) * len(self.scales)        
         assert self.num_anchors == cfg.num, \
             'the number of anchors per grid should be equal to len(ratios) * len(scales),'\
@@ -31,7 +26,7 @@ class Anchors(nn.Module):
         all_anchors = []
 
         for idx, p in enumerate(feature_shapes):
-            base_anchors = self.generate_base_anchors(base_size=self.sizes[idx], ratio=self.ratios, scale=self.scales)
+            base_anchors = self.generate_base_anchors(base_size=self.base_sizes[idx], ratio=self.ratios, scale=self.scales)
             grid_anchors = self.grid_anchors(feature_shapes[idx], self.strides[idx], base_anchors)
             all_anchors.append(grid_anchors)
 
@@ -40,9 +35,12 @@ class Anchors(nn.Module):
         return all_anchors
     
     def generate_base_anchors(self, base_size, ratio, scale):
+        
+        h_ratio = torch.sqrt(ratio)
+        w_ratio = 1 / h_ratio
 
-        w = (base_size * 1/torch.sqrt(ratio)[:, None] * scale[None, :]).view(-1)
-        h = (base_size * torch.sqrt(ratio)[:, None] * scale[None, :]).view(-1)
+        w = (base_size * w_ratio[:, None] * scale[None, :]).view(-1)
+        h = (base_size * h_ratio[:, None] * scale[None, :]).view(-1)
 
         # use float anchor and the anchor's center is aligned with the pixel center
         base_anchors = [
@@ -58,8 +56,8 @@ class Anchors(nn.Module):
         grid_y = torch.arange(0, h_shape) * stride 
         
         shift_x, shift_y = self.meshgrid(grid_x, grid_y)
-        shift_anchors = torch.stack((shift_x.flatten(), shift_y.flatten(),
-                                     shift_x.flatten(), shift_y.flatten()), dim=-1)
+        shift_anchors = torch.stack((shift_x, shift_y,
+                                     shift_x, shift_y), dim=-1)
         
         grid_anchors = base_anchors[None, :, :] + shift_anchors[:, None, :]
         grid_anchors = grid_anchors.view(-1, 4)

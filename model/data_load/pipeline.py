@@ -3,7 +3,6 @@ import numpy as np
 import math
 import random
 import cv2
-from model.utils import xyxy2cxcywh, cxcywh2xyxy
 
 class Pipeline:
     def __init__(self, args: Dict) -> None:
@@ -32,8 +31,7 @@ class Shape_transform:
         targets = sample['targets']
         ori_bbox = targets[:, :4]
         ori_h, ori_w, _ = ori_img.shape
-        # change bbox from [x,y,x,y] to [cx,cy,w,h]
-        # ori_bbox = xyxy2cxcywh(ori_bbox)
+
         # hsv
         if random.random() < self.hsv_prob:
             img = hsv_augment(ori_img)
@@ -47,8 +45,7 @@ class Shape_transform:
         # resize
         resized_img, r = resize_augment(img, self.input_size, self.keep_ratio)
         box *= r
-        # change bbox from [cx,cy,w,h] to [x,y,x,y]
-        # box = cxcywh2xyxy(box)
+
 
         targets[:, :4] = box
         _, res_h, res_w = resized_img.shape

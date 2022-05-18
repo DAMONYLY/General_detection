@@ -1,123 +1,175 @@
+# Modification 2020 RangiLyu
+# Copyright 2018-2019 Open-MMLab.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import torch
 import torch.nn as nn
+from utils.tools import *
+from .assign_results import AssignResult
 
-from utils.tools import iou_xyxy_torch
-class ATSS(nn.Module):
-    """New matcher for anchor-based model, whose full name is: Adaptive Training Sample Selection.
 
-    Refer to <Bridging the Gap Between Anchor-based and Anchor-free Detection via Adaptive Training Sample Selection>.
-    Refer to mmdetection:
-    https://github.com/open-mmlab/mmdetection/blob/master/mmdet/core/bbox/assigners/atss_assigner.py
+class ATSSAssigner(nn.Module):
+    """Assign a corresponding gt bbox or background to each bbox.
 
-    ATSSMatcher must cooperate with 'Centerness' Metric.
+    Each proposals will be assigned with `0` or a positive integer
+    indicating the ground truth index.
+
+    - 0: negative sample, no assigned gt
+    - positive integer: positive sample, index (1-based) of assigned gt
 
     Args:
-        cfg (easydict): config for Matcher.
-        num_fg_classes (int): number of all foreground classes(do not include 'background').
-
-        In order to be compatible with Class-Specific-Regression for multi-class(to detect overlapped objects),
-        Matcher will compute match_result for every fg-class.
+        topk (float): number of bbox selected in each level
     """
 
-    def __init__(self, cfg, num_fg_classes):
-        super(ATSS, self).__init__()
-        self.negative_label = 0
-        self.ignore_label = -1
-        self.positive_label = 1
-        self.num_fg_classes = num_fg_classes
-        self.ignore_cross_boundary = cfg.IGNORE_CROSS_BOUNDARY
-        self.integrity_thresh = cfg.INTEGRITY_THRESH
-        self.regression_type = cfg.REGRESSION_TYPE
-        self.topk = cfg.TOPK
+    def __init__(self, topk):
+        self.topk = topk
+    # https://github.com/sfzhang15/ATSS/blob/master/atss_core/modeling/rpn/atss/loss.py
 
-    def forward(self, centerness_matrix, targets, anchors):
-        """
+    def assign(
+        self, bboxes, targets, num_level_bboxes, gt_bboxes_ignore=None):
+        """Assign gt to bboxes.
+
+        The assignment is done in following steps
+
+        1. compute iou between all bbox (bbox of all pyramid levels) and gt
+        2. compute center distance between all bbox and gt
+        3. on each pyramid level, for each gt, select k bbox whose center
+           are closest to the gt center, so we total select k*l bbox as
+           candidates for each gt
+        4. get corresponding iou for the these candidates, and compute the
+           mean and std, set mean + std as the iou threshold
+        5. select these candidates whose iou are greater than or equal to
+           the threshold as postive
+        6. limit the positive sample's center in gt
+
+
         Args:
-            centerness_matrix (torch.Tensor): An tensor with shape (N, M), N anchors and M GT_boxes
-            target (torch.Tensor) [B, M, 4]: contain GT boxes.
-            anchor (torch.Tensor) [B, N, 4]: anchors.
+            bboxes (Tensor): Bounding boxes to be assigned, shape(n, 4).
+            num_level_bboxes (List): num of bboxes in each level
+            gt_bboxes (Tensor): Groundtruth boxes, shape (k, 4).
+            gt_bboxes_ignore (Tensor, optional): Ground truth bboxes that are
+                labelled as `ignored`, e.g., crowd boxes in COCO.
+            gt_labels (Tensor, optional): Label of gt_bboxes, shape (k, ).
 
         Returns:
-            matches (torch.Tensor): a matrix with shape (M, self.num_fg_classes), where matches[i, j] is a matched
-                ground-truth index i in [0, N) for class j.
-            match_labels (torch.Tensor): a matrix of shape (M, self.num_fg_classes), where match_labels[i, j] indicates
-                whether a prediction i is a true or false positive or ignored for class j.
+            :obj:`AssignResult`: The assign result.
         """
-        anchor_boxes = anchors
-        # get mask of invisible anchor
-        # if self.regression_type == 'anchor_based':
-        #     ignore_anchor_mask = ~anchor.get_field("visibility").all(dim=1)
-        # else:
-        #     src_w = target.size[0]
-        #     src_h = target.size[1]
-        #     anchor_center = torch.mean(anchor_boxes.view(anchor_boxes.size(0), -1, 2), dim=1)
-        #     invisible_anchor_mask = (anchor_center[:, 0] > src_w) | (anchor_center[:, 1] > src_h)
-        #     ignore_anchor_mask = invisible_anchor_mask
+        INF = 100000000
+        target = targets[targets[:, 4] != -1]
+        gt_bboxes = target[:, :4]
+        gt_labels = target[:, 4]
+        
+        bboxes = bboxes[:, :4]
+        num_gt, num_bboxes = gt_bboxes.size(0), bboxes.size(0)
 
-        default_matches = centerness_matrix.new_full((centerness_matrix.size(1),), 0, dtype=torch.int64)
-        default_match_labels = centerness_matrix.new_full((centerness_matrix.size(1),), self.negative_label, dtype=torch.int8)
+        # compute iou between all bbox and gt
+        overlaps = iou_xyxy_torch(bboxes, gt_bboxes)
 
-        # compute iou matrix between N gt_boxes and M anchor_boxes, shape (N, M)
-        iou = iou_xyxy_torch(anchor_boxes, targets)
-        # stride for each anchor box, shape (M,)
-        anchor_stride = anchor.get_field('feature_stride').clone()
-        anchor_stride_unique, num_level_bboxes = torch.unique(anchor_stride, sorted=True, return_counts=True)
+        # assign 0 by default
+        assigned_gt_inds = overlaps.new_full((num_bboxes,), 0, dtype=torch.long)
 
-        gt_label = target.get_field('labels')
-        matches = []
-        match_labels = []
-        for class_idx in range(self.num_fg_classes):
-            class_mask = gt_label == class_idx
-            if not torch.any(class_mask):
-                matches.append(default_matches)
-                match_labels.append(default_match_labels)
+        if num_gt == 0 or num_bboxes == 0:
+            # No ground truth or boxes, return empty assignment
+            max_overlaps = overlaps.new_zeros((num_bboxes,))
+            if num_gt == 0:
+                # No truth, assign everything to background
+                assigned_gt_inds[:] = 0
+            if gt_labels is None:
+                assigned_labels = None
             else:
-                class_label_idxs = torch.where(class_mask)[0]
-                sub_centerness_matrix = centerness_matrix[class_label_idxs]
-                sub_iou_matrix = iou_matrix[class_label_idxs]
-                num_gt = sub_iou_matrix.size(0)
+                assigned_labels = overlaps.new_full((num_bboxes,), -1, dtype=torch.long)
+            return AssignResult(
+                num_gt, assigned_gt_inds, max_overlaps, labels=assigned_labels
+            )
 
-                candidate_idxs = []
-                start_idx = 0
-                for bboxes_per_level in num_level_bboxes:
-                    # on each pyramid level, for each gt,
-                    # select k bbox whose center are closest to the gt center
-                    end_idx = start_idx + bboxes_per_level
-                    tmp_centerness_matrix = sub_centerness_matrix[:, start_idx:end_idx]
-                    _ , topk_idxs_per_level = tmp_centerness_matrix.topk(k=min(self.topk,
-                                                                         bboxes_per_level), dim=1, largest=True)
-                    candidate_idxs.append(topk_idxs_per_level + start_idx)
-                    start_idx = end_idx
-                candidate_idxs = torch.cat(candidate_idxs, dim=1)
-                tmp_idxs = torch.arange(num_gt).reshape(-1, 1)
-                candidate_ious = sub_iou_matrix[tmp_idxs, candidate_idxs]
-                candidate_centerness = sub_centerness_matrix[tmp_idxs, candidate_idxs]
-                iou_mean_per_gt = candidate_ious.mean(dim=1)
-                iou_std_per_gt = candidate_ious.std(dim=1)
-                iou_thresh_per_gt = iou_mean_per_gt + iou_std_per_gt
-                iou_mask = candidate_ious > iou_thresh_per_gt[:, None]
-                # limit the positive anchor's center in gt
-                centerness_mask = candidate_centerness > 0
-                pos_mask = iou_mask & centerness_mask
+        # compute center distance between all bbox and gt
+        gt_cx = (gt_bboxes[:, 0] + gt_bboxes[:, 2]) / 2.0
+        gt_cy = (gt_bboxes[:, 1] + gt_bboxes[:, 3]) / 2.0
+        gt_points = torch.stack((gt_cx, gt_cy), dim=1)
 
-                # TODO: if an anchor box is assigned to multiple gts, choose the one with the highest IoU ?
-                tmp_mask = torch.zeros_like(pos_mask, dtype=torch.float32)
-                tmp_mask[pos_mask] = 1.1
-                sub_centerness_matrix[tmp_idxs, candidate_idxs] = tmp_mask
-                max_matched_vals, max_matche_labels = sub_centerness_matrix.max(dim=0)
-                sub_match_labels = max_matche_labels.new_full(max_matche_labels.size(),
-                                                              self.negative_label,
-                                                              dtype=torch.int8)
-                postive_mask = max_matched_vals == 1.1
-                sub_match_labels[postive_mask] = self.positive_label
-                # ignore anchor points which are cross-boundary or are inside ignored_gt_boxes.
-                sub_match_labels[ignore_anchor_mask] = self.ignore_label
+        bboxes_cx = (bboxes[:, 0] + bboxes[:, 2]) / 2.0
+        bboxes_cy = (bboxes[:, 1] + bboxes[:, 3]) / 2.0
+        bboxes_points = torch.stack((bboxes_cx, bboxes_cy), dim=1)
 
-                matches.append(class_label_idxs[max_matche_labels])
-                match_labels.append(sub_match_labels)
+        distances = (
+            (bboxes_points[:, None, :] - gt_points[None, :, :]).pow(2).sum(-1).sqrt()
+        )
 
-        matches = torch.stack(matches, dim=1)
-        match_labels = torch.stack(match_labels, dim=1)
+        # Selecting candidates based on the center distance
+        candidate_idxs = []
+        start_idx = 0
+        for level, bboxes_per_level in enumerate(num_level_bboxes):
+            # on each pyramid level, for each gt,
+            # select k bbox whose center are closest to the gt center
+            end_idx = start_idx + bboxes_per_level
+            distances_per_level = distances[start_idx:end_idx, :]
+            selectable_k = min(self.topk, bboxes_per_level)
+            _, topk_idxs_per_level = distances_per_level.topk(
+                selectable_k, dim=0, largest=False
+            )
+            candidate_idxs.append(topk_idxs_per_level + start_idx)
+            start_idx = end_idx
+        candidate_idxs = torch.cat(candidate_idxs, dim=0)
 
-        return matches, match_labels
+        # get corresponding iou for the these candidates, and compute the
+        # mean and std, set mean + std as the iou threshold
+        candidate_overlaps = overlaps[candidate_idxs, torch.arange(num_gt)]
+        overlaps_mean_per_gt = candidate_overlaps.mean(0)
+        overlaps_std_per_gt = candidate_overlaps.std(0)
+        overlaps_thr_per_gt = overlaps_mean_per_gt + overlaps_std_per_gt
 
+        is_pos = candidate_overlaps >= overlaps_thr_per_gt[None, :]
+
+        # limit the positive sample's center in gt
+        for gt_idx in range(num_gt):
+            candidate_idxs[:, gt_idx] += gt_idx * num_bboxes
+        ep_bboxes_cx = (
+            bboxes_cx.view(1, -1).expand(num_gt, num_bboxes).contiguous().view(-1)
+        )
+        ep_bboxes_cy = (
+            bboxes_cy.view(1, -1).expand(num_gt, num_bboxes).contiguous().view(-1)
+        )
+        candidate_idxs = candidate_idxs.view(-1)
+
+        # calculate the left, top, right, bottom distance between positive
+        # bbox center and gt side
+        l_ = ep_bboxes_cx[candidate_idxs].view(-1, num_gt) - gt_bboxes[:, 0]
+        t_ = ep_bboxes_cy[candidate_idxs].view(-1, num_gt) - gt_bboxes[:, 1]
+        r_ = gt_bboxes[:, 2] - ep_bboxes_cx[candidate_idxs].view(-1, num_gt)
+        b_ = gt_bboxes[:, 3] - ep_bboxes_cy[candidate_idxs].view(-1, num_gt)
+        is_in_gts = torch.stack([l_, t_, r_, b_], dim=1).min(dim=1)[0] > 0.01
+        is_pos = is_pos & is_in_gts
+
+        # if an anchor box is assigned to multiple gts,
+        # the one with the highest IoU will be selected.
+        overlaps_inf = torch.full_like(overlaps, -INF).t().contiguous().view(-1)
+        index = candidate_idxs.view(-1)[is_pos.view(-1)]
+        overlaps_inf[index] = overlaps.t().contiguous().view(-1)[index]
+        overlaps_inf = overlaps_inf.view(num_gt, -1).t()
+
+        max_overlaps, argmax_overlaps = overlaps_inf.max(dim=1)
+        assigned_gt_inds[max_overlaps != -INF] = (
+            argmax_overlaps[max_overlaps != -INF] + 1
+        )
+
+        if gt_labels is not None:
+            assigned_labels = assigned_gt_inds.new_full((num_bboxes,), -1)
+            pos_inds = torch.nonzero(assigned_gt_inds > 0, as_tuple=False).squeeze()
+            if pos_inds.numel() > 0:
+                assigned_labels[pos_inds] = gt_labels[assigned_gt_inds[pos_inds] - 1].long()
+        else:
+            assigned_labels = None
+        return AssignResult(
+            num_gt, num_bboxes, assigned_gt_inds, max_overlaps, assigned_labels, bboxes, target
+        )

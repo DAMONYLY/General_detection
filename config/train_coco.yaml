@@ -1,11 +1,23 @@
 
+
 Classes:
-  name: ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
-           'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse',
-           'motorbike', 'person', 'pottedplant', 'sheep', 'sofa',
-           'train', 'tvmonitor']
-  num: 20
+  name: ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
+              'train', 'truck', 'boat', 'traffic_light', 'fire_hydrant',
+              'stop_sign', 'parking_meter', 'bench', 'bird', 'cat', 'dog',
+              'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
+              'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
+              'skis', 'snowboard', 'sports_ball', 'kite', 'baseball_bat',
+              'baseball_glove', 'skateboard', 'surfboard', 'tennis_racket',
+              'bottle', 'wine_glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
+              'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot',
+              'hot_dog', 'pizza', 'donut', 'cake', 'chair', 'couch',
+              'potted_plant', 'bed', 'dining_table', 'toilet', 'tv', 'laptop',
+              'mouse', 'remote', 'keyboard', 'cell_phone', 'microwave',
+              'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock',
+              'vase', 'scissors', 'teddy_bear', 'hair_drier', 'toothbrush']
+  num: 80
         
+
 Model:
   name: General # [YOLO, General]
   backbone:
@@ -25,23 +37,20 @@ Model:
       mid_channel: 256
       stack_layers: 4 # 用于指定卷积的层数
     cls_head:
-      out_channel: 20
+      out_channel: 80
       mid_channel: 256
       stack_layers: 4 # 用于指定卷积的层数
     head_shared: True # TODO: 用于指定head对于不同的FPN层是否共享 
   anchors: 
     strides: [8, 16, 32, 64, 128]
-    # base_sizes: 
+    sizes: [32, 64, 128, 256, 512]
     ratios: [0.5, 1, 2]
-    scales: [4, 5, 6]
+    scales: [2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)]
     num: 9
   metrics: 
-    name: ATSS # [Max_iou, ATSS]
+    name: Max_iou
     pos_iou_thr: 0.5
-    neg_iou_thr: 0.4
-    topk: 9
-  sample:
-    name: Retinanet
+    neg_iou_thr: 0.3
   loss:
     reg_loss: 
       name: SmoothL1 #[SmoothL1, IOU]
@@ -53,41 +62,43 @@ Model:
 Data:
   dataset_type: coco # type of dataset, now only support coco
   train:
-    dataset_path: ./dataset/voc2coco # path of dataset
+    dataset_path: ./dataset/coco # path of dataset
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
       hsv_prob: 1.0
       flip_prob: 0.5
   test:
-    dataset_path: ./dataset/voc2coco # path of dataset
+    dataset_path: ./dataset/coco # path of dataset
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
     nms_thre: 0.5
       
+
+
 Schedule:
   resume_path:  # if exist, means resume training from resume path
   device:
     gpus: '0' # cuda device, i.e. 0 or 0,1,2,3 or cpu
-    batch_size: 20
+    batch_size: 14
     num_workers: 4
   seed: 10
-  epochs: 50
+  epochs: 100
   optimizer:
     name: SGD
-    lr: 0.001
+    lr: 0.15
     momentum: 0.9
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
-    milestones: [25,45]
+    milestones: [35,70,85]
     gamma: 0.1
-    warmup: 1
+    warmup: 2
 
 Log:
-  save_path: ./results/ATSS_test # where to save model(.pth) and tensorboard data
+  save_path: ./results/coco # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
-  val_intervals: 2 # epochs to val 
+  val_intervals: 5 # epochs to val 
 
 

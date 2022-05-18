@@ -3,10 +3,8 @@
 通用的FPN
 '''
 import torch.nn as nn
-import torch.nn.functional as F
 from ..layers.conv_module import Convolutional
-import math
-
+from model.utils.init_weights import * 
 
 def make_layer(stride, channel_in, channel_out):
     m = nn.Sequential()
@@ -50,9 +48,11 @@ class FPN(nn.Module):
         self.P7_2 = nn.Conv2d(channel_out, channel_out, kernel_size=3, stride=2, padding=1)
 
     def init_weights(self):
+        print('initialize Fpn with config')
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 xavier_init(m, distribution="uniform")
+                
     def forward(self, inputs):
         C3, C4, C5 = inputs # large, medium, small
 
@@ -75,13 +75,3 @@ class FPN(nn.Module):
         P7_x = self.P7_2(P7_x)
 
         return [P3_x, P4_x, P5_x, P6_x, P7_x]
-
-
-def xavier_init(module, gain=1, bias=0, distribution="normal"):
-    assert distribution in ["uniform", "normal"]
-    if distribution == "uniform":
-        nn.init.xavier_uniform_(module.weight, gain=gain)
-    else:
-        nn.init.xavier_normal_(module.weight, gain=gain)
-    if hasattr(module, "bias") and module.bias is not None:
-        nn.init.constant_(module.bias, bias)
