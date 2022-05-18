@@ -36,7 +36,7 @@ Model:
     scales: [4, 5, 6]
     num: 9
   metrics: 
-    name: ATSS # [Max_iou, ATSS]
+    name: Max_iou # [Max_iou, ATSS]
     pos_iou_thr: 0.5
     neg_iou_thr: 0.4
     topk: 9
@@ -54,6 +54,8 @@ Data:
   dataset_type: coco # type of dataset, now only support coco
   train:
     dataset_path: ./dataset/voc2coco # path of dataset
+    set_name: train2017
+    shuffle: True
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
@@ -61,6 +63,8 @@ Data:
       flip_prob: 0.5
   test:
     dataset_path: ./dataset/voc2coco # path of dataset
+    set_name: val2017
+    shuffle: False
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
@@ -69,14 +73,14 @@ Data:
 Schedule:
   resume_path:  # if exist, means resume training from resume path
   device:
-    gpus: '0' # cuda device, i.e. 0 or 0,1,2,3 or cpu
+    gpus: '4,5,6,7' # cuda device, i.e. 0 or 0,1,2,3 or cpu
     batch_size: 20
     num_workers: 4
   seed: 10
   epochs: 50
   optimizer:
     name: SGD
-    lr: 0.001
+    lr: 0.005
     momentum: 0.9
     weight_decay: 0.0001
   lr_schedule:
@@ -86,7 +90,7 @@ Schedule:
     warmup: 1
 
 Log:
-  save_path: ./results/ATSS_test # where to save model(.pth) and tensorboard data
+  save_path: ./results/test # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 2 # epochs to val 
 
