@@ -10,7 +10,7 @@ from utils.tools import *
 from tensorboardX import SummaryWriter
 from utils import model_info
 
-from model.data_load import build_dataloader, DataPrefetcher
+from model.data_load import build_train_dataloader, build_val_dataloader, DataPrefetcher
 from eval.coco_eval import COCO_Evaluater
 from utils.optimizer import build_optimizer
 from utils.config import cfg, load_config
@@ -25,7 +25,6 @@ class Trainer(object):
         init_seeds(args.Schedule.seed)
         #----------- 2. get gpu info -----------------------------------------------
         self.device = gpu.select_device(args.Schedule.device.gpus)
-        
         self.start_epoch = 0
         self.best_mAP = 0.
         self.DP = False
@@ -38,15 +37,14 @@ class Trainer(object):
             self.writer = SummaryWriter(log_dir=os.path.join(self.save_path, 'logs'))
         #----------- 3. get dataloader ------------------------------------------
         if self.dataset == 'coco':
-            self.train_dataloader = build_dataloader(cfg=args.Data.train, 
+            self.train_dataloader = build_train_dataloader(cfg=args.Data.train, 
                                                      batch_size=args.Schedule.device.batch_size,
                                                      num_workers=args.Schedule.device.num_workers,
                                                      seed=args.Schedule.seed
                                                      )
-            self.val_dataloader = build_dataloader(cfg=args.Data.test, 
+            self.val_dataloader = build_val_dataloader(cfg=args.Data.test, 
                                                      batch_size=args.Schedule.device.batch_size,
                                                      num_workers=args.Schedule.device.num_workers,
-                                                     seed=args.Schedule.seed
                                                      )
         print("=> Init data prefetcher to speed up dataloader...")
         self.prefetcher = DataPrefetcher(self.train_dataloader, self.device)
@@ -56,10 +54,8 @@ class Trainer(object):
         self.model_info = model_info.get_model_info(self.model, args.Data.test.pipeline.input_size)
         print("Model Summary: {}".format(self.model_info))
         # self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
-
         #------------5. build loss calculater--------------------------------
         self.loss_calculater = Loss_calculater(args)
-
         #------------6. build evaluator--------------------------------
         self.evaluator = COCO_Evaluater(self.val_dataloader, self.device, args)
         #------------7. init optimizer, criterion, scheduler, weights-----------------------

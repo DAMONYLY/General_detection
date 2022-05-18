@@ -55,7 +55,6 @@ Data:
   train:
     dataset_path: ./dataset/voc2coco # path of dataset
     set_name: train2017
-    shuffle: True
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
@@ -64,7 +63,6 @@ Data:
   test:
     dataset_path: ./dataset/voc2coco # path of dataset
     set_name: val2017
-    shuffle: False
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
@@ -92,6 +90,6 @@ Schedule:
 Log:
   save_path: ./results/test # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
-  val_intervals: 2 # epochs to val 
+  val_intervals: 1 # epochs to val 
 
 
