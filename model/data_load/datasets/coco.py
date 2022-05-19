@@ -3,20 +3,16 @@ import os
 import torch
 import numpy as np
 import random
-import csv
 
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
 from torch.utils.data.sampler import Sampler
 
 from pycocotools.coco import COCO
 
-import skimage.io
 import skimage.transform
 import skimage.color
 import skimage
 import cv2
-from PIL import Image
 from ..pipeline import Pipeline
 
 class CocoDataset(Dataset):

@@ -1,9 +1,9 @@
 torch
 torchvision
 opencv-python
-tensorboardX=2.5
-thop=0.0.31
-pycocotools=2.0.4
-scikit-image=0.19.2
-tqdm=4.64.0
-yacs=0.1.8
+tensorboardX==2.5
+thop==0.0.31.post2005241907
+pycocotools==2.0.4
+scikit-image==0.19.2
+tqdm==4.64.0
+yacs==0.1.8

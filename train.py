@@ -2,7 +2,7 @@ from model.loss_calculater import Loss_calculater
 from model.build_model import build_model
 import utils.gpu as gpu
 import torch
-from torch.utils.data import DataLoader
+
 import time
 import datetime
 import argparse
@@ -10,8 +10,7 @@ from utils.tools import *
 from tensorboardX import SummaryWriter
 from utils import model_info
 
-from model.data_load.datasets import CocoDataset
-from model.data_load import simple_collater, AspectRatioBasedSampler
+from model.data_load import build_train_dataloader, build_val_dataloader, DataPrefetcher
 from eval.coco_eval import COCO_Evaluater
 from utils.optimizer import build_optimizer
 from utils.config import cfg, load_config
@@ -26,7 +25,6 @@ class Trainer(object):
         init_seeds(args.Schedule.seed)
         #----------- 2. get gpu info -----------------------------------------------
         self.device = gpu.select_device(args.Schedule.device.gpus)
-        
         self.start_epoch = 0
         self.best_mAP = 0.
         self.DP = False
@@ -37,46 +35,27 @@ class Trainer(object):
         self.tensorboard = args.Log.tensorboard
         if self.tensorboard:
             self.writer = SummaryWriter(log_dir=os.path.join(self.save_path, 'logs'))
-        #----------- 3. get train dataset ------------------------------------------
+        #----------- 3. get dataloader ------------------------------------------
         if self.dataset == 'coco':
-            self.train_dataset = CocoDataset(args.Data.train.dataset_path,
-                            set_name='train2017',
-                            pipeline=args.Data.train.pipeline
-                            )
-            self.val_dataset = CocoDataset(args.Data.test.dataset_path,
-                                    set_name='val2017',
-                                    pipeline=args.Data.test.pipeline
-                                    )
-            train_sampler = AspectRatioBasedSampler(self.train_dataset, 
-                                                    batch_size=args.Schedule.device.batch_size, 
-                                                    drop_last=False
-                                                    )
-            self.train_dataloader = DataLoader(self.train_dataset,
-                                            num_workers=args.Schedule.device.num_workers,
-                                            batch_sampler=train_sampler,
-                                            collate_fn=simple_collater
-                                            )
-            val_sampler = AspectRatioBasedSampler(self.val_dataset, 
-                                                batch_size=args.Schedule.device.batch_size, 
-                                                drop_last=False
-                                                )
-            self.val_dataloader = DataLoader(self.val_dataset,
-                                            num_workers=args.Schedule.device.num_workers,
-                                            batch_sampler=val_sampler,
-                                            collate_fn=simple_collater
-                                            )
-
+            self.train_dataloader = build_train_dataloader(cfg=args.Data.train, 
+                                                     batch_size=args.Schedule.device.batch_size,
+                                                     num_workers=args.Schedule.device.num_workers,
+                                                     seed=args.Schedule.seed
+                                                     )
+            self.val_dataloader = build_val_dataloader(cfg=args.Data.test, 
+                                                     batch_size=args.Schedule.device.batch_size,
+                                                     num_workers=args.Schedule.device.num_workers,
+                                                     )
+        print("=> Init data prefetcher to speed up dataloader...")
+        self.prefetcher = DataPrefetcher(self.train_dataloader, self.device)
+        self.max_iter = len(self.train_dataloader)
         #----------- 4. build model -----------------------------------------------
         self.model = build_model(args).to(self.device)
-        
         self.model_info = model_info.get_model_info(self.model, args.Data.test.pipeline.input_size)
         print("Model Summary: {}".format(self.model_info))
         # self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
-
         #------------5. build loss calculater--------------------------------
         self.loss_calculater = Loss_calculater(args)
-        # self.model.apply(tools.weights_init_normal)
-
         #------------6. build evaluator--------------------------------
         self.evaluator = COCO_Evaluater(self.val_dataloader, self.device, args)
         #------------7. init optimizer, criterion, scheduler, weights-----------------------
@@ -117,7 +96,8 @@ class Trainer(object):
         chkpt = {'epoch': epoch,
                  'best_mAP': self.best_mAP,
                  'model': model.state_dict(),
-                 'optimizer': self.optimizer.state_dict()}
+                 'optimizer': self.optimizer.state_dict()
+                 }
         torch.save(chkpt, last_weight)
 
         if self.best_mAP == mAP:
@@ -129,8 +109,8 @@ class Trainer(object):
 
     def train(self):
 
-        print("Train datasets number is : {}".format(len(self.train_dataset)))
-        all_iter = (self.epochs - self.start_epoch) * len(self.train_dataloader)
+        print("Train datasets number is : {}".format(len(self.train_dataloader.dataset)))
+        all_iter = (self.epochs - self.start_epoch) * self.max_iter
         for epoch in range(self.start_epoch, self.epochs):
             
             self.model.train()
@@ -138,12 +118,13 @@ class Trainer(object):
             iter_time = 0
             start_time = time.time()
 
-            for i, data in enumerate(self.train_dataloader):
+            for i in range(self.max_iter):
                 # torch.cuda.synchronize()
                 self.scheduler.step(len(self.train_dataloader)*epoch + i)
                 self.optimizer.zero_grad()
-                imgs = data['imgs'].to(self.device)
-                bboxes = data['targets'].to(self.device)
+                data = self.prefetcher.next()
+                imgs = data['imgs']
+                bboxes = data['targets']
                 # break
                 # show_dataset(self.train_dataloader, './test', num = 2)
                 features = self.model(imgs)
@@ -165,9 +146,11 @@ class Trainer(object):
                         epoch, self.epochs - 1, i, len(self.train_dataloader) - 1, iter_time, avg_loss[2], loss_items[0], loss_items[1], self.optimizer.param_groups[0]['lr'])
                     print(line +', ' + eta_str)
                     iter_time = 0
-                    if self.tensorboard:
-                        self.scalar_summary("avg_loss", "Train", avg_loss[2], i + epoch * len(self.train_dataloader))
-                        self.scalar_summary("lr", "Train", self.optimizer.param_groups[0]['lr'], i+epoch * len(self.train_dataloader))
+                if self.tensorboard:
+                    self.scalar_summary("avg_loss", "Train", avg_loss[2], i + epoch * len(self.train_dataloader))
+                    self.scalar_summary("reg_loss", "Train", avg_loss[0], i + epoch * len(self.train_dataloader))
+                    self.scalar_summary("cls_loss", "Train", avg_loss[1], i + epoch * len(self.train_dataloader))
+                    self.scalar_summary("lr", "Train", self.optimizer.param_groups[0]['lr'], i+epoch * len(self.train_dataloader))
 
                 end_time = time.time()
                 iter_time += end_time - start_time

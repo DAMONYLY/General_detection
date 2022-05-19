@@ -1,7 +1,10 @@
 # General_Detection
 # TODO, 给每一个文件夹下添加 __init__.py 文件，让import更简洁
 # TODO, 转为log存储训练信息
-# TODO, ATSS
+
+## 2022年5月18日22:27:14
+1. 新增了dataloader的专用函数，进一步优化train.py下的代码整洁。
+2. 新增了Data_prefetcher功能，加速数据加载，减少训练时间。
 
 ## 2022年5月17日22:47:21
 1. 新增ATSS_assigner部分代码。
