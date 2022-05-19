@@ -1,4 +1,5 @@
 import torch.nn as nn
+from loguru import logger
 from ..layers.conv_module import Convolutional
 from ..layers.blocks_module import Residual_block
 
@@ -92,7 +93,7 @@ class Darknet53(nn.Module):
         import torch
         import numpy as np
 
-        print("load darknet weights : ", weight_file)
+        logger.info("load darknet weights : ", weight_file)
 
         with open(weight_file, 'rb') as f:
             _ = np.fromfile(f, dtype=np.int32, count=5)
@@ -128,7 +129,7 @@ class Darknet53(nn.Module):
                     bn_layer.running_var.data.copy_(bn_rv)
                     ptr += num_b
 
-                    print("loading weight {}".format(bn_layer))
+                    logger.info("loading weight {}".format(bn_layer))
                 else:
                     # Load conv. bias
                     num_b = conv_layer.bias.numel()
@@ -141,4 +142,4 @@ class Darknet53(nn.Module):
                 conv_layer.weight.data.copy_(conv_w)
                 ptr += num_w
 
-                print("loading weight {}".format(conv_layer))
+                logger.info("loading weight {}".format(conv_layer))

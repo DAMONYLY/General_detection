@@ -6,7 +6,6 @@ import torch.nn.functional as F
 class Mish(nn.Module):
     def __init__(self):
         super().__init__()
-        # print("Mish activation loaded...")
     def forward(self, x):
 
         return x * (torch.tanh(F.softplus(x)))

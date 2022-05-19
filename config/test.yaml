@@ -12,7 +12,7 @@ Model:
     pretrain: True # whether to use pretrain model
     weight_path: # if exist, means load this weight path to pretrain
     name: Resnet # [Darknet53, Resnet, shufflenetv2]
-    depth: 50 # depth of ResNet model [18, 34, 50, 101, 152]
+    depth: 18 # depth of ResNet model [18, 34, 50, 101, 152]
     # model_size: 1.0x # model size of shufflenetv2 model[0.5x, 1.0x, 1.5x, 2.0x]
   fpn:
     name: fpn
@@ -88,7 +88,7 @@ Schedule:
     warmup: 1
 
 Log:
-  save_path: ./results/prefetcher_lr0.01 # where to save model(.pth) and tensorboard data
+  save_path: ./results/test # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 1 # epochs to val 
 

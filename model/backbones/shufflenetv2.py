@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
-
-# from ..module.activation import act_layers
+from loguru import logger
 
 model_urls = {
     "shufflenetv2_0.5x": "https://download.pytorch.org/models/shufflenetv2_x0.5-f707e7126e.pth",  # noqa: E501
@@ -115,7 +114,7 @@ class ShuffleNetV2(nn.Module):
         # out_stages can only be a subset of (2, 3, 4)
         assert set(out_stages).issubset((2, 3, 4))
 
-        print("model size is ", model_size)
+        logger.info("model size is ", model_size)
 
         self.stage_repeats = [4, 8, 4]
         self.model_size = model_size
@@ -188,5 +187,5 @@ class ShuffleNetV2(nn.Module):
             url = model_urls["shufflenetv2_{}".format(self.model_size)]
             if url is not None:
                 pretrained_state_dict = model_zoo.load_url(url)
-                print("=> loading pretrained model {}".format(url))
+                logger.info("=> loading pretrained model {}".format(url))
                 self.load_state_dict(pretrained_state_dict, strict=False)

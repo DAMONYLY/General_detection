@@ -1,4 +1,5 @@
 import torch.nn as nn
+from loguru import logger
 from model.utils.init_weights import *
 
 class ClassificationModel(nn.Module):
@@ -25,7 +26,7 @@ class ClassificationModel(nn.Module):
 
 
     def init_weights(self):
-        print("Initialize Cls Head with config...")
+        logger.info("Initialize Cls Head with config...")
         for m in self.cls_convs.modules():
             if isinstance(m, nn.Conv2d):
                 normal_init(m, std=0.01)

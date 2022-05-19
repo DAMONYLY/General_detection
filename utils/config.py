@@ -1,6 +1,7 @@
 from yacs.config import CfgNode
 from contextlib import redirect_stdout
 import os 
+from loguru import logger
 
 cfg = CfgNode(new_allowed=True)
 
@@ -28,7 +29,7 @@ def save_config(cfg, path):
     if not os.path.exists(path):
         os.mkdir(path)
     with open(os.path.join(path, 'experiments.yaml'), 'w') as f:
-        with redirect_stdout(f): print(cfg.dump())
+        with redirect_stdout(f): logger.info(cfg.dump())
 
 if __name__ == "__main__":
     path = '/opt/General_detection/config/test.yaml'

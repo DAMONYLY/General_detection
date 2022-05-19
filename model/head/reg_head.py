@@ -1,4 +1,5 @@
 import torch.nn as nn
+from loguru import logger
 from model.utils.init_weights import *
 
 class RegressionModel(nn.Module):
@@ -23,7 +24,7 @@ class RegressionModel(nn.Module):
         self.num_anchors = num_anchors
     
     def init_weights(self):
-        print("Initialize Reg Head with config.")
+        logger.info("Initialize Reg Head with config...")
         for m in self.reg_convs.modules():
             if isinstance(m, nn.Conv2d):
                 normal_init(m, std=0.01)
