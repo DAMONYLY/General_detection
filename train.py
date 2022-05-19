@@ -2,23 +2,26 @@ from model.loss_calculater import Loss_calculater
 from model.build_model import build_model
 import utils.gpu as gpu
 import torch
-
 import time
 import datetime
 import argparse
+from utils.logger import setup_logger
 from utils.tools import *
 from tensorboardX import SummaryWriter
-from utils import model_info
+from loguru import logger
 
+import os
+
+from utils import model_info
 from model.data_load import build_train_dataloader, build_val_dataloader, DataPrefetcher
 from eval.coco_eval import COCO_Evaluater
 from utils.optimizer import build_optimizer
 from utils.config import cfg, load_config
 from utils.visualize import *
-# import os
+
 # os.environ["CUDA_VISIBLE_DEVICES"]='1'
 
-
+@logger.catch
 class Trainer(object):
     def __init__(self, args):
         #----------- 1. init seed for reproduce -----------------------------------
@@ -46,13 +49,13 @@ class Trainer(object):
                                                      batch_size=args.Schedule.device.batch_size,
                                                      num_workers=args.Schedule.device.num_workers,
                                                      )
-        print("=> Init data prefetcher to speed up dataloader...")
+        logger.info("=> Init data prefetcher to speed up dataloader...")
         self.prefetcher = DataPrefetcher(self.train_dataloader, self.device)
         self.max_iter = len(self.train_dataloader)
         #----------- 4. build model -----------------------------------------------
         self.model = build_model(args).to(self.device)
         self.model_info = model_info.get_model_info(self.model, args.Data.test.pipeline.input_size)
-        print("Model Summary: {}".format(self.model_info))
+        logger.info("Model Summary: {}".format(self.model_info))
         # self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
         #------------5. build loss calculater--------------------------------
         self.loss_calculater = Loss_calculater(args)
@@ -62,7 +65,7 @@ class Trainer(object):
         self.optimizer, self.scheduler = build_optimizer(args, len(self.train_dataloader), self.model)
         #------------8. resume training --------------------------------------
         if args.Schedule.resume_path:
-            print('Start resume trainning from {}'.format(args.Schedule.resume_path))
+            logger.info('Start resume trainning from {}'.format(args.Schedule.resume_path))
             self.__load_model_weights(args.Schedule.resume_path)
 
         #-------------9. DP mode ------------------------------
@@ -109,7 +112,7 @@ class Trainer(object):
 
     def train(self):
 
-        print("Train datasets number is : {}".format(len(self.train_dataloader.dataset)))
+        logger.info("Train datasets number is : {}".format(len(self.train_dataloader.dataset)))
         all_iter = (self.epochs - self.start_epoch) * self.max_iter
         for epoch in range(self.start_epoch, self.epochs):
             
@@ -144,7 +147,7 @@ class Trainer(object):
 
                     line = 'Epoch:[{}|{}], Batch:[{}|{}], iter_time:{:.2f}s, loss_avg:{:.2f}, loss_reg:{:.2f}, loss_cls:{:.2f}, lr:{:.2g}'.format(
                         epoch, self.epochs - 1, i, len(self.train_dataloader) - 1, iter_time, avg_loss[2], loss_items[0], loss_items[1], self.optimizer.param_groups[0]['lr'])
-                    print(line +', ' + eta_str)
+                    logger.info(line + ', ' + eta_str)
                     iter_time = 0
                 if self.tensorboard:
                     self.scalar_summary("avg_loss", "Train", avg_loss[2], i + epoch * len(self.train_dataloader))
@@ -160,9 +163,9 @@ class Trainer(object):
                 if not os.path.exists(self.save_path):
                     os.makedirs(self.save_path)
                 self.__save_model_weights(self.save_path, epoch, mAP)
-                print('best mAP : %g' % (self.best_mAP))
+                logger.info('best mAP : %g' % (self.best_mAP))
             if epoch > 0 and epoch % self.val_intervals == 0:
-                print('*'*20+"Validate"+'*'*20)
+                logger.info('*'*20+"Validate"+'*'*20)
                 aps = self.evaluator.evalute(self.model, self.save_path)
                 if self.tensorboard:
                     self.scalar_summary("AP_50", "Train", aps["AP_50"], epoch)
@@ -175,4 +178,5 @@ if __name__ == "__main__":
     parser.add_argument('--config', type=str, default='./config/test.yaml', help="train config file path")
     opt = parser.parse_args()
     load_config(cfg, opt.config, save=True)
+    setup_logger(save_dir=cfg.Log.save_path)
     Trainer(args = cfg).train()

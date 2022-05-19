@@ -1,4 +1,4 @@
-
+from loguru import logger
 from .darknet53 import Darknet53
 from .resnet import *
 from .shufflenetv2 import ShuffleNetV2
@@ -26,20 +26,20 @@ def build_backbone(cfg):
             model = resnet152()
         else:
             raise ValueError('Unsupported model depth, must be one of 18, 34, 50, 101, 152')
-        if pre_train:
+        if pre_train == True:
             name = name.lower() + str(depth)
-            print(f'=> loading {name} backbone from {model_urls[name]}')
+            logger.info(f'=> loading {name} backbone from {model_urls[name]}')
             model.load_state_dict(model_zoo.load_url(model_urls[name], model_dir='.'), strict=False)
         else:
-            print('Not loading the pretained model...')
+            logger.warning('Not loading the pretained model...')
         return model
     elif name.lower() == 'shufflenetv2':
         size = getattr(cfg.Model.backbone, 'model_size', '1.0x')
         model = ShuffleNetV2(model_size=size)
-        if pre_train:
+        if pre_train == True:
             model._initialize_weights(pretrain=pre_train)
         else:
-            print('Not loading the pretained model...')
+            logger.warning('Not loading the pretained model...')
         return model
     else:
         raise NotImplementedError(f'{name} model not support yet...')

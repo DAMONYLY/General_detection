@@ -2,9 +2,13 @@
 # TODO, 给每一个文件夹下添加 __init__.py 文件，让import更简洁
 # TODO, 转为log存储训练信息
 
+## 2022年5月19日16:02:31
+1. 新增.log存储训练信息功能。
+
 ## 2022年5月18日22:27:14
 1. 新增了dataloader的专用函数，进一步优化train.py下的代码整洁。
 2. 新增了Data_prefetcher功能，加速数据加载，减少训练时间。
+3. Commit: cc075c4abf804a304b40464cbea364ccdcd4467a
 
 ## 2022年5月17日22:47:21
 1. 新增ATSS_assigner部分代码。

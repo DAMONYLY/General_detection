@@ -1,8 +1,5 @@
-'''
-2021年11月29日19:59:10
-通用的FPN
-'''
 import torch.nn as nn
+from loguru import logger
 from ..layers.conv_module import Convolutional
 from model.utils.init_weights import * 
 
@@ -48,7 +45,7 @@ class FPN(nn.Module):
         self.P7_2 = nn.Conv2d(channel_out, channel_out, kernel_size=3, stride=2, padding=1)
 
     def init_weights(self):
-        print('initialize Fpn with config')
+        logger.info('initialize Fpn with config...')
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 xavier_init(m, distribution="uniform")

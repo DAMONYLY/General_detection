@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+from loguru import logger
 from .draw_on_pic import visualize_boxes
 
 def show_dataset(dataloader, path, num=10):
@@ -29,7 +30,7 @@ def show_dataset(dataloader, path, num=10):
                             probs=_probs, class_labels=cateNames)
             img_names_with_bbox = os.path.join(path, 'bbox_' + "ori"+ str(count) + '.jpg')
             cv2.imwrite(img_names_with_bbox, vis_img)
-            print(f'saved to {img_names_with_bbox}')
+            logger.info(f'saved to {img_names_with_bbox}')
             count += 1
             if count == num:
                 return
