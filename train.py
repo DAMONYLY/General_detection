@@ -146,9 +146,11 @@ class Trainer(object):
                         epoch, self.epochs - 1, i, len(self.train_dataloader) - 1, iter_time, avg_loss[2], loss_items[0], loss_items[1], self.optimizer.param_groups[0]['lr'])
                     print(line +', ' + eta_str)
                     iter_time = 0
-                    if self.tensorboard:
-                        self.scalar_summary("avg_loss", "Train", avg_loss[2], i + epoch * len(self.train_dataloader))
-                        self.scalar_summary("lr", "Train", self.optimizer.param_groups[0]['lr'], i+epoch * len(self.train_dataloader))
+                if self.tensorboard:
+                    self.scalar_summary("avg_loss", "Train", avg_loss[2], i + epoch * len(self.train_dataloader))
+                    self.scalar_summary("reg_loss", "Train", avg_loss[0], i + epoch * len(self.train_dataloader))
+                    self.scalar_summary("cls_loss", "Train", avg_loss[1], i + epoch * len(self.train_dataloader))
+                    self.scalar_summary("lr", "Train", self.optimizer.param_groups[0]['lr'], i+epoch * len(self.train_dataloader))
 
                 end_time = time.time()
                 iter_time += end_time - start_time
