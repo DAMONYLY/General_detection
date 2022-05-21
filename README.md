@@ -9,7 +9,7 @@ git clone https://github.com/DAMONYLY/General_detection.git
 ```
 ### 2. Create environment
 ```
-conda create -n G_detetion python=3.8
+conda create -n G_detection python=3.8
 conda activate G_detection
 # install torch and torchvison according to your CUDA version
 conda install pytorch torchvision

@@ -65,6 +65,7 @@ def multiclass_nms(
     if max_num > 0:
         boxes = boxes[:max_num]
         scores = scores[:max_num]
+        keep = keep[:max_num]
 
     return boxes, scores, labels[keep]
 

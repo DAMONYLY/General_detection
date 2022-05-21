@@ -16,11 +16,9 @@ def make_layer(stride, channel_in, channel_out):
 class FPN(nn.Module):
     """
     the FPN of retinanet.
-    TODO: 实现根据strides 动态构建FPN
     """
     def __init__(self, channel_in = 256, channel_out = 256):
         super(FPN, self).__init__()
-
 
         # upsample C5 to get P5 from the FPN paper
         self.channel_out = channel_out
