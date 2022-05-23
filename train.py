@@ -1,23 +1,23 @@
-from model.loss_calculater import Loss_calculater
-from model.build_model import build_model
-import utils.gpu as gpu
 import torch
 import time
 import datetime
 import argparse
 from utils.logger import setup_logger
-from utils.tools import *
+
 from loguru import logger
 from torch.utils.tensorboard import SummaryWriter
 import os
 
-from utils.model_info import get_model_info, gpu_mem_usage
+from utils.model_info import get_model_info
 from model.data_load import build_train_dataloader, build_val_dataloader, DataPrefetcher
 from eval.coco_eval import COCO_Evaluater
 from utils.optimizer import build_optimizer
 from utils.config import cfg, load_config
 from utils.visualize import *
-
+from utils.tools import *
+from model.loss_calculater import Loss_calculater
+from model.build_model import build_model
+from utils.gpu import select_device, gpu_mem_usage
 # os.environ["CUDA_VISIBLE_DEVICES"]='1'
 
 @logger.catch
@@ -26,7 +26,7 @@ class Trainer(object):
         #----------- 1. init seed for reproduce -----------------------------------
         init_seeds(args.Schedule.seed)
         #----------- 2. get gpu info -----------------------------------------------
-        self.device = gpu.select_device(args.Schedule.device.gpus)
+        self.device = select_device(args.Schedule.device.gpus)
         self.start_epoch = 0
         self.best_mAP_info = {'best_mAP': 0.0, 'best_epoch': 0}
         self.DP = False
@@ -60,7 +60,7 @@ class Trainer(object):
         self.loss_calculater = Loss_calculater(args)
         #------------6. build evaluator--------------------------------
         self.evaluator = COCO_Evaluater(self.val_dataloader, self.device, args)
-        #------------7. init optimizer, criterion, scheduler, weights-----------------------
+        #------------7. init optimizer, scheduler-----------------------
         self.optimizer, self.scheduler = build_optimizer(args, len(self.train_dataloader), self.model)
         #------------8. resume training --------------------------------------
         if args.Schedule.resume_path:

@@ -15,9 +15,3 @@ def get_model_info(model, tsize):
     info = "Params: {:.2f}M, Gflops: {:.2f}GFLOPs".format(params, flops)
     return info
 
-def gpu_mem_usage():
-    """
-    Compute the GPU memory usage for the current device (MB).
-    """
-    mem_usage_bytes = torch.cuda.max_memory_allocated()
-    return mem_usage_bytes / (1024 * 1024)
