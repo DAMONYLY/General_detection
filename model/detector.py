@@ -30,8 +30,6 @@ class General_detector(nn.Module):
         self.batch_size, _, self.image_w, self.image_h = images.shape
         features = self.backbone(images) 
         features = self.fpn(features) 
-        # proposals_regs = torch.cat([self.reg_head(feature) for feature in features], dim=1)
-        # proposals_clses = torch.cat([self.cls_head(feature) for feature in features], dim=1)
         proposals_regs = [self.reg_head(feature) for feature in features]
         proposals_clses = [self.cls_head(feature) for feature in features]
         return [proposals_regs, proposals_clses]

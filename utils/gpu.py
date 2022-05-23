@@ -2,26 +2,6 @@ import torch
 import os
 from loguru import logger
 
-def select_device2(id, force_cpu=False):
-    cuda = False if force_cpu else torch.cuda.is_available()
-    device = torch.device('cuda:{}'.format(id) if cuda else 'cpu')
-
-    if not cuda:
-        logger.info('Using CPU')
-    if cuda:
-        c = 1024 ** 2  # bytes to MB
-        ng = torch.cuda.device_count()
-        x = [torch.cuda.get_device_properties(i) for i in range(ng)]
-        logger.info("Using CUDA device0 _CudaDeviceProperties(name='%s', total_memory=%dMB)" %
-              (x[0].name, x[0].total_memory / c))
-        if ng > 0:
-            # torch.cuda.set_device(0)  # OPTIONAL: Set GPU ID
-            for i in range(1, ng):
-                logger.info("           device%g _CudaDeviceProperties(name='%s', total_memory=%dMB)" %
-                      (i, x[i].name, x[i].total_memory / c))
-
-    return device
-
 def select_device(device='', batch_size=None):
     # device = 'cpu' or '0' or '0,1,2,3'
     cpu_request = type(device) == str and device.lower() == 'cpu'
@@ -45,6 +25,14 @@ def select_device(device='', batch_size=None):
         logger.info(f'Using torch {torch.__version__} CPU')
 
     return torch.device('cuda:0' if cuda else 'cpu')
+
+
+def gpu_mem_usage():
+    """
+    Compute the GPU memory usage for the current device (MB).
+    """
+    mem_usage_bytes = torch.cuda.max_memory_allocated()
+    return mem_usage_bytes / (1024 * 1024)
 
 if __name__ == "__main__":
     _ = select_device(0)

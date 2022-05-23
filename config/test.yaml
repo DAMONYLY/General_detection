@@ -12,8 +12,8 @@ Model:
     pretrain: True # whether to use pretrain model
     weight_path: # if exist, means load this weight path to pretrain
     name: Resnet # [Darknet53, Resnet, shufflenetv2]
-    depth: 18 # depth of ResNet model [18, 34, 50, 101, 152]
-    # model_size: 1.0x # model size of shufflenetv2 model[0.5x, 1.0x, 1.5x, 2.0x]
+    depth: 50 # depth of ResNet model [18, 34, 50, 101, 152]
+    model_size: 0.5x # model size of shufflenetv2 model[0.5x, 1.0x, 1.5x, 2.0x]
   fpn:
     name: fpn
     channel_out: 256 # fpn层输出通道大小, 没有则默认是256
@@ -36,10 +36,10 @@ Model:
     scales: [4, 5, 6]
     num: 9
   metrics: 
-    name: Max_iou # [Max_iou, ATSS]
+    name: ATSS # [Max_iou, ATSS, change]
     pos_iou_thr: 0.5
     neg_iou_thr: 0.4
-    topk: 9
+    topk: 81
   sample:
     name: Retinanet
   loss:
@@ -75,20 +75,20 @@ Schedule:
     batch_size: 20
     num_workers: 4
   seed: 10
-  epochs: 50
+  epochs: 30
   optimizer:
     name: SGD
-    lr: 0.01
+    lr: 0.05
     momentum: 0.9
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
-    milestones: [25,45]
+    milestones: [15,25]
     gamma: 0.1
     warmup: 1
 
 Log:
-  save_path: ./results/test # where to save model(.pth) and tensorboard data
+  save_path: ./results/atss_lr0.05 # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 1 # epochs to val 
 

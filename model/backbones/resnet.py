@@ -139,7 +139,7 @@ class ResNet(nn.Module):
         x2 = self.layer2(x1)
         x3 = self.layer3(x2)
         x4 = self.layer4(x3)
-        return [x2,x3,x4]
+        return tuple([x2,x3,x4])
 
 
 def resnet18(**kwargs):

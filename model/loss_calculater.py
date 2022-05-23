@@ -2,7 +2,6 @@
 
 import torch.nn as nn
 import torch
-from model.metrics import assign_results
 from model.anchor.build_anchor import Anchors
 from model.loss.build_loss import build_loss
 from model.metrics.build_metrics import build_metrics
@@ -47,7 +46,7 @@ class Loss_calculater(nn.Module):
         cls_weights = []
         num_pos_inds = 0
         for batch in range(batch_size):
-            assigned_results = self.assigner.assign(bboxes[batch], targets[batch], num_level_bboxes)
+            assigned_results = self.assigner.assign(bboxes[batch], targets[batch], num_level_bboxes, proposals_reg[batch])
             sampled_results = self.sampler.sample(assigned_results)
             
             reg_targets.append(sampled_results.bbox_targets)
