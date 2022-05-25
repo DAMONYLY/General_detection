@@ -6,6 +6,8 @@ from model.anchor.build_anchor import Anchors
 from model.loss.build_loss import build_loss
 from model.metrics.build_metrics import build_metrics
 from model.sample.build_sample import build_sampler
+from model.post_processing.yolo_decoder import yolo_decode
+from utils.tools import IOU_xyxy_torch_same
 
 class Loss_calculater(nn.Module):
     """
@@ -47,8 +49,12 @@ class Loss_calculater(nn.Module):
         num_pos_inds = 0
         for batch in range(batch_size):
             assigned_results = self.assigner.assign(bboxes[batch], targets[batch], num_level_bboxes, proposals_reg[batch])
-            sampled_results = self.sampler.sample(assigned_results)
+            sampled_results = self.sampler.sample(assigned_results, reg_feature=proposals_reg[batch])
             
+            proposals_bboxes = yolo_decode(proposals_reg[batch], assigned_results.bboxes)
+            sampled_results.bbox_targets = IOU_xyxy_torch_same(proposals_bboxes, 
+                                                               sampled_results.bbox_targets)
+            sampled_results.bbox_targets_weights = sampled_results.bbox_targets_weights[:, 0]
             reg_targets.append(sampled_results.bbox_targets)
             reg_weights.append(sampled_results.bbox_targets_weights)
             cls_targets.append(sampled_results.bbox_labels)

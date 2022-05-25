@@ -1,5 +1,3 @@
-
-from .yolo_fpn import FPN_YOLOV3
 from .fpn import FPN
 
 def build_fpn(cfg, channel_in = [1024, 512, 256]):
@@ -10,9 +8,7 @@ def build_fpn(cfg, channel_in = [1024, 512, 256]):
     Returns:
         FPN (module)
     """
-    if cfg.name == 'yolo_fpn':
-        neck = FPN_YOLOV3()
-    elif cfg.name == 'fpn':
+    if cfg.name == 'fpn':
         channel_out = cfg.get('channel_out', 256)
         neck = FPN(channel_in, channel_out)
         neck.init_weights()

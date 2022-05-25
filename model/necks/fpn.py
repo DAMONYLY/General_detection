@@ -1,17 +1,7 @@
 import torch.nn as nn
 from loguru import logger
-from ..layers.conv_module import Convolutional
 from model.utils.init_weights import * 
 
-def make_layer(stride, channel_in, channel_out):
-    m = nn.Sequential()
-    m.add_module(str(stride) + '_1',
-            Convolutional(filters_in=channel_in, filters_out=channel_out, kernel_size=1, stride=1, pad=0, norm="bn",activate="relu"))
-    m.add_module(str(stride) + '_upsample', nn.Upsample(scale_factor=2, mode='nearest'))
-    m.add_module(str(stride) + '_2',
-            Convolutional(filters_in=channel_in, filters_out=channel_out, kernel_size=3, stride=1, pad=1, norm="bn",activate="relu"))
-            
-    return m
 
 class FPN(nn.Module):
     """

@@ -53,7 +53,7 @@ class Trainer(object):
         self.max_iter = len(self.train_dataloader)
         #----------- 4. build model -----------------------------------------------
         self.model = build_model(args).to(self.device)
-        logger.info(self.model)
+        # logger.info(self.model)
         self.model_info = get_model_info(self.model, args.Data.test.pipeline.input_size)
         logger.info("Model Summary: {}".format(self.model_info))
         #------------5. build loss calculater--------------------------------
@@ -173,7 +173,7 @@ if __name__ == "__main__":
     import sys 
     # sys.argv = ['train.py', '--b', '40', '--device', '0' ]
     default_config_parser = parser = argparse.ArgumentParser(description= 'General Detection config parser')
-    parser.add_argument('--config', type=str, default='./config/test.yaml', help="train config file path")
+    parser.add_argument('--config', type=str, default='./config/retinanet_r50_voc2coco.yaml', help="train config file path")
     opt = parser.parse_args()
     load_config(cfg, opt.config, save=True)
     setup_logger(save_dir=cfg.Log.save_path)

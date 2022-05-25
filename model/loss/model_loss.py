@@ -54,16 +54,29 @@ class L1_Loss(nn.Module):
             return loss.sum()/num_pos
  
 class IOU_Loss(nn.Module):
-    def __init__(self, reduction="mean"):
+    def __init__(self, reduction="avg_pos"):
         super(IOU_Loss, self).__init__()
         self.reduction = reduction
-    def forward(self, input, target):
+    def forward(self, input, target, weight, num_pos, mode='linear'):
+        if mode == 'linear':
+            loss = 1 - target
+        elif mode == 'square':
+            loss = 1 - target**2
+        elif mode == 'log':
+            loss = -target.log()
+        else:
+            raise NotImplementedError
         
-        loss = target - input
-        if self.reduction == 'mean':
+        loss *= weight
+        assert self.reduction in ['none', 'mean', 'sum', 'avg_pos']
+        if self.reduction == 'none':
+            return loss
+        elif self.reduction == 'mean':
             return loss.mean()
         elif self.reduction == 'sum':
             return loss.sum()
+        elif self.reduction == 'avg_pos':
+            return loss.sum()/num_pos
 
 class Loss(nn.Module):
     def __init__(self, cls_loss, reg_loss, cls_ratio=1, reg_ratio=1):

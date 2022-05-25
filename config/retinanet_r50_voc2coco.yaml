@@ -19,7 +19,7 @@ Model:
     channel_out: 256 # fpn层输出通道大小, 没有则默认是256
     out_stride: [8, 16, 32] # TODO: 用于输出多少x的特征图用来检测
   head:
-    name: normal
+    name: retinanethead
     reg_head:
       out_channel: 4
       mid_channel: 256
@@ -44,8 +44,8 @@ Model:
     name: Retinanet
   loss:
     reg_loss: 
-      name: SmoothL1 #[SmoothL1, IOU]
-      ratio: 10
+      name: IOU #[SmoothL1, IOU]
+      ratio: 1
     cls_loss: 
       name: Focal
       ratio: 1
@@ -72,7 +72,7 @@ Schedule:
   resume_path:  # if exist, means resume training from resume path
   device:
     gpus: '0' # cuda device, i.e. 0 or 0,1,2,3 or cpu
-    batch_size: 10
+    batch_size: 20
     num_workers: 4
   seed: 10
   epochs: 30
@@ -83,12 +83,12 @@ Schedule:
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
-    milestones: [10,25]
+    milestones: [15,25]
     gamma: 0.1
     warmup: 0.5
 
 Log:
-  save_path: ./results/test111 # where to save model(.pth) and tensorboard data
+  save_path: ./results/atss_iou_loss_lr0.01 # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 1 # epochs to val 
 
