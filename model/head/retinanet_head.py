@@ -3,9 +3,9 @@ from loguru import logger
 from model.utils.init_weights import *
 from model.layers import ConvModule
 
-class Retinanethead(nn.Module):
+class Retina_Head(nn.Module):
     def __init__(self, num_features_in, num_anchors, cfg):
-        super(Retinanethead, self).__init__()
+        super(Retina_Head, self).__init__()
         
         reg_feature_size = cfg.reg_head.get('mid_channel', 256)
         self.reg_out_channel = cfg.reg_head.get('out_channel', 4)

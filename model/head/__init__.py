@@ -1,6 +1,6 @@
 from .cls_head import ClassificationModel
 from .reg_head import RegressionModel
-from .retinanet_head import Retinanethead
+from .retinanet_head import Retina_Head
 
 def build_head(cfg, channel, num_anchor):
 
@@ -11,14 +11,13 @@ def build_head(cfg, channel, num_anchor):
         #build cls head
         classificationModel = ClassificationModel(channel, num_anchor, cfg.cls_head)
 
-    elif cfg.name.lower() == 'retinanethead':
+    elif cfg.name.lower() == 'retina_head':
         # head = eval(cfg.name)
-        head = Retinanethead(channel, num_anchor, cfg)
-        # classificationModel = ClassificationModel(channel, num_anchor, cfg.cls_head)
+        Head = Retina_Head(channel, num_anchor, cfg)
         
     else:
         raise NotImplementedError
-    head.init_weights()
+    Head.init_weights()
     # classificationModel.init_weights()
-    return head
+    return Head
     

@@ -125,11 +125,11 @@ class Trainer(object):
                 self.optimizer.zero_grad()
                 data = self.prefetcher.next()
                 imgs = data['imgs']
-                bboxes = data['targets']
+                targets = data['targets']
                 # break
                 # show_dataset(self.train_dataloader, './test', num = 10)
                 features = self.model(imgs)
-                loss, loss_reg, loss_cls = self.loss_calculater(imgs, features, bboxes)
+                loss, loss_reg, loss_cls = self.loss_calculater(features, targets)
 
                 loss.backward()
                 self.optimizer.step()

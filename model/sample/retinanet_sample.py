@@ -1,9 +1,10 @@
 import torch
-from model.utils import bbox2delta
+from model.utils.boxes import bbox2delta
 from .sample_results import SampleResult
 
 class Retinanet_sampler:
-    def __init__(self, num_classes):
+    
+    def __init__(self, bbox_coder, num_classes):
         self.bbox_coder = bbox2delta
         self.num_calsses = num_classes
         
@@ -26,8 +27,8 @@ class Retinanet_sampler:
         bbox_labels_weights = torch.zeros_like(bbox_labels)
 
         pos_bbox_targets = assign_result.targets[assign_result.assigned_gt_inds[pos_inds] - 1, :4]
-        # pos_bbox = assign_result.bboxes[pos_inds]
-        # pos_bbox_targets = self.bbox_coder(pos_bbox, pos_bbox_targets)
+        pos_bbox = assign_result.bboxes[pos_inds]
+        pos_bbox_targets = self.bbox_coder(pos_bbox, pos_bbox_targets)
         
         bbox_targets[pos_inds, :] = pos_bbox_targets
         bbox_targets_weights [pos_inds, :] = 1.0

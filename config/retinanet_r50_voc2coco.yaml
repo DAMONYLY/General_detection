@@ -1,4 +1,3 @@
-
 Classes:
   name: ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
            'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse',
@@ -19,7 +18,7 @@ Model:
     channel_out: 256 # fpn层输出通道大小, 没有则默认是256
     out_stride: [8, 16, 32] # TODO: 用于输出多少x的特征图用来检测
   head:
-    name: retinanethead
+    name: retina_head
     reg_head:
       out_channel: 4
       mid_channel: 256
@@ -42,12 +41,14 @@ Model:
     topk: 81
   sample:
     name: Retinanet
+    bbox_coder: bbox2delta
   loss:
+    name : Reg_Cls_Loss
     reg_loss: 
-      name: IOU #[SmoothL1, IOU]
-      ratio: 1
+      name: SmoothL1_Loss #[SmoothL1_Loss, IOU_Loss]
+      ratio: 10
     cls_loss: 
-      name: Focal
+      name: Focal_Loss # [Focal_Loss, BCE_Loss]
       ratio: 1
 
 Data:
