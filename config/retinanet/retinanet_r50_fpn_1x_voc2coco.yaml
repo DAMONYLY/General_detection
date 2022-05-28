@@ -35,10 +35,10 @@ Model:
     scales: [4, 5, 6]
     num: 9
   metrics: 
-    name: ATSS # [Max_iou, ATSS, change]
-    # pos_iou_thr: 0.5
-    # neg_iou_thr: 0.4
-    topk: 81
+    name: Max_iou # [Max_iou, ATSS, change]
+    pos_iou_thr: 0.5
+    neg_iou_thr: 0.4
+    # topk: 81
   sample:
     name: Retinanet
     bbox_coder: bbox2delta
@@ -89,7 +89,7 @@ Schedule:
     warmup: 1
 
 Log:
-  save_path: ./results/retinanet_atss_lr0.01_e20 # where to save model(.pth) and tensorboard data
+  save_path: ./results/retinanet_r50_fpn_1x_lr0.01 # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 1 # epochs to val 
 

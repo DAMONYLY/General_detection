@@ -49,7 +49,7 @@ class Loss_calculater(nn.Module):
         num_pos_inds = 0
         
         for batch in range(batch_size):
-            assigned_results = self.assigner.assign(bboxes[batch], targets[batch], num_level_bboxes, proposals_reg[batch])
+            assigned_results = self.assigner.assign(bboxes[batch], targets[batch], num_level_bboxes, feature=proposals_reg[batch])
             
             sampled_results = self.sampler.sample(assigned_results, reg_feature=proposals_reg[batch])
             

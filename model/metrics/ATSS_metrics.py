@@ -37,7 +37,7 @@ class ATSSAssigner(nn.Module):
     # https://github.com/sfzhang15/ATSS/blob/master/atss_core/modeling/rpn/atss/loss.py
 
     def assign(
-        self, bboxes, targets, num_level_bboxes, gt_bboxes_ignore=None):
+        self, bboxes, targets, num_level_bboxes, **kwargs):
         """Assign gt to bboxes.
 
         The assignment is done in following steps

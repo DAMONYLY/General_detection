@@ -25,7 +25,7 @@ class Max_iou_assigner(nn.Module):
         self.IOU_loss = True if 'iou' in cfg.Model.loss.reg_loss.name.lower() else False
         self.num_classes = cfg.Classes.num
         
-    def assign(self, bboxes, targets, num_level_bboxes):
+    def assign(self, bboxes, targets, num_level_bboxes, **kwargs):
         """
         Arguments:
             anchors(tensor): Generated anchors, shape: [N, 4] in xyxy form.
