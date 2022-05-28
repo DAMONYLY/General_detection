@@ -40,11 +40,15 @@ Change the parameters in config/xx.yaml. More information can be found here [Con
 # Run train.py
 python train.py
 ```
+
+## Model Zoo
+
+Results and models are available in the [model zoo](docs/model_zoo.md).
 ---
 ## Reference
 * https://github.com/Peterisfar/YOLOV3
 * https://github.com/PaddlePaddle/PaddleDetection
 * https://github.com/Megvii-BaseDetection/YOLOX
-* https://github.com/DAMONYLY/nanodet
+* https://github.com/RangiLyu/nanodet
 * https://github.com/open-mmlab/mmdetection
 
