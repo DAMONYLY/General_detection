@@ -1,11 +1,11 @@
-'目前是用于构建模型的启动器，根据模型名字选择检测模型'
-
 import torch.nn as nn
 import torch
 from model.anchor.build_anchor import Anchors
 from model.loss.build_loss import build_loss
 from model.metrics.build_metrics import build_metrics
 from model.sample.build_sample import build_sampler
+from model.post_processing.yolo_decoder import yolo_decode
+from utils.tools import IOU_xyxy_torch_same
 
 class Loss_calculater(nn.Module):
     """
@@ -20,23 +20,25 @@ class Loss_calculater(nn.Module):
         self.loss = build_loss(cfg.Model.loss)
         self.img_size = cfg.Data.train.pipeline.input_size
         
-    def forward(self, imgs, features, targets):
+    def forward(self, features, targets):
         """
         Arguments:
-            features (list[Tensor] or ImageList): features from head [reg, cls]
-            targets (list[BoxList]): ground-truth boxes present in the image (optional)
+            features (list[Tensor]): features from head [reg, cls]
+            targets (Tensor)[B, num_gt, 4]: ground-truth boxes present in the image 
         Returns:
-            result (list[BoxList] or dict[Tensor]): the loss of model.
+            loss (Tensor): all loss of model.
+            loss_reg (Tensor): reg branch loss of model.
+            loss_cls (Tensor): cls branch loss of model.
         """
 
         proposals_reg, proposals_cls = features
         num_level_bboxes = [feature.size(1) for feature in proposals_reg]
         proposals_reg = torch.cat(proposals_reg, dim=1)
         proposals_cls = torch.cat(proposals_cls, dim=1)
-        assert self.img_size[0] == imgs.size()[-2:][0] and \
-               self.img_size[1] == imgs.size()[-2:][1]
-        assert imgs.size(0) == proposals_reg.size(0) == proposals_cls.size(0) == targets.size(0)
-        batch_size = imgs.size(0)
+
+        assert proposals_reg.size(0) == proposals_cls.size(0) == targets.size(0)
+        batch_size = proposals_reg.size(0)
+        
         bboxes = self.anchors(self.img_size, device=proposals_reg.device, dtype=proposals_reg.dtype)
         bboxes = bboxes.unsqueeze(0).repeat(batch_size, 1, 1)
         
@@ -45,9 +47,11 @@ class Loss_calculater(nn.Module):
         cls_targets = []
         cls_weights = []
         num_pos_inds = 0
+        
         for batch in range(batch_size):
             assigned_results = self.assigner.assign(bboxes[batch], targets[batch], num_level_bboxes, proposals_reg[batch])
-            sampled_results = self.sampler.sample(assigned_results)
+            
+            sampled_results = self.sampler.sample(assigned_results, reg_feature=proposals_reg[batch])
             
             reg_targets.append(sampled_results.bbox_targets)
             reg_weights.append(sampled_results.bbox_targets_weights)

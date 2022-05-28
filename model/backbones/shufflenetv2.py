@@ -132,7 +132,7 @@ class ShuffleNetV2(nn.Module):
             self._stage_out_channels = [24, 244, 488, 976, 2048]
         else:
             raise NotImplementedError
-        self.fpn_size = self._stage_out_channels[(-len(self.out_stages)-1):-1]
+        self.neck_size = self._stage_out_channels[(-len(self.out_stages)-1):-1]
         # building first layer
         input_channels = 3
         output_channels = self._stage_out_channels[0]

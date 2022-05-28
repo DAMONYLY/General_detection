@@ -1,87 +1,16 @@
 import torch.nn as nn
-import torch
-import torch.nn.functional as F
-class Focal_Loss(nn.Module):
-    """Focal Loss for Dense Object Detection
-    https://arxiv.org/abs/1708.02002
+from .loss import *
 
-    Args:
-        
-    """
-    def __init__(self, gamma=2.0, alpha=0.25, reduction="avg_pos"):
-        super(Focal_Loss, self).__init__()
-        self.gamma = gamma
-        self.alpha = alpha
-        self.reduction = reduction
-        self.loss = nn.BCELoss(reduction='none')
-
-    def forward(self, input, target, weight, num_pos):
-
-        loss = self.loss(input=input, target=target)
-        focal_weight = target * input + (1 - target) * (1 - input)
-        alpha = self.alpha * target + (1 - self.alpha) * (1 - target)
-        loss *= alpha * torch.pow(1.0 - focal_weight, self.gamma)
-        
-        loss *= weight
-        assert self.reduction in ['none', 'mean', 'sum', 'avg_pos']
-        if self.reduction == 'none':
-            return loss
-        elif self.reduction == 'mean':
-            return loss.mean()
-        elif self.reduction == 'sum':
-            return loss.sum()
-        elif self.reduction == 'avg_pos':
-            test = torch.clamp(torch.sum(target >= 0.5).float(), min=1.0)
-            return loss.sum()/num_pos
-
-class L1_Loss(nn.Module):
-    def __init__(self, reduction="avg_pos"):
-        super(L1_Loss, self).__init__()
-        self.reduction = reduction
-        self.loss = nn.SmoothL1Loss(reduction='none')
-    def forward(self, input, target, weight, num_pos):
-        loss = self.loss(input, target)
-        
-        loss *= weight
-        assert self.reduction in ['none', 'mean', 'sum', 'avg_pos']
-        if self.reduction == 'none':
-            return loss
-        elif self.reduction == 'mean':
-            return loss.mean()
-        elif self.reduction == 'sum':
-            return loss.sum()
-        elif self.reduction == 'avg_pos':
-            return loss.sum()/num_pos
- 
-class IOU_Loss(nn.Module):
-    def __init__(self, reduction="mean"):
-        super(IOU_Loss, self).__init__()
-        self.reduction = reduction
-    def forward(self, input, target):
-        
-        loss = target - input
-        if self.reduction == 'mean':
-            return loss.mean()
-        elif self.reduction == 'sum':
-            return loss.sum()
-
-class Loss(nn.Module):
+class Reg_Cls_Loss(nn.Module):
     def __init__(self, cls_loss, reg_loss, cls_ratio=1, reg_ratio=1):
-        super(Loss, self).__init__()
-        if cls_loss == 'Focal':
-            self.cls_loss = Focal_Loss()
-        elif cls_loss == 'BCELoss':
-            self.cls_loss = nn.BCELoss(reduction='mean')
-        else:
-            raise NotImplementedError
+        super(Reg_Cls_Loss, self).__init__()
+
+        assert cls_loss in ['Focal_Loss', 'BCE_Loss'], f'Unsupport cls loss type'
+        self.cls_loss = eval(cls_loss)()
         self.cls_ratio = cls_ratio
 
-        if reg_loss == 'SmoothL1':
-            self.reg_loss = L1_Loss()
-        elif reg_loss == 'IOU':
-            self.reg_loss = IOU_Loss()
-        else:
-            raise NotImplementedError
+        assert reg_loss in ['SmoothL1_Loss', 'IOU_Loss'], f'Unsupport reg loss type'
+        self.reg_loss = eval(reg_loss)()
         self.reg_ratio = reg_ratio
 
     def forward(self, reg_pred, reg_targets, reg_weights, cls_pred, cls_targets, cls_weights, num_pos_inds):
@@ -91,3 +20,31 @@ class Loss(nn.Module):
 
         loss = loss_reg + loss_cls
         return loss, loss_reg, loss_cls
+    
+class Reg_Cls_Obj_Loss(nn.Module):
+    def __init__(self, cls_loss, reg_loss, obj_loss, cls_ratio=1, reg_ratio=1, obj_ratio=1):
+        super(Reg_Cls_Obj_Loss, self).__init__()
+
+        assert reg_loss in ['SmoothL1_Loss', 'IOU_Loss'], f'Unsupport reg loss type'
+        self.reg_loss = eval(reg_loss)()
+        self.reg_ratio = reg_ratio
+        
+        assert cls_loss in ['Focal_Loss', 'BCE_Loss'], f'Unsupport cls loss type'
+        self.cls_loss = eval(cls_loss)()
+        self.cls_ratio = cls_ratio
+
+        assert obj_loss in ['BCE_Loss'], f'Unsupport obj loss type'
+        self.obj_loss = eval(obj_loss)()
+        self.obj_ratio = obj_ratio
+
+    def forward(self, reg_pred, reg_targets, reg_weights, 
+                      cls_pred, cls_targets, cls_weights, 
+                      obj_pred, obj_targets, obj_weights,
+                      num_pos_inds):
+        
+        loss_reg = self.reg_ratio * self.reg_loss(reg_pred, reg_targets, reg_weights, num_pos_inds)
+        loss_cls = self.cls_ratio * self.cls_loss(cls_pred, cls_targets, cls_weights, num_pos_inds)
+        loss_obj = self.obj_ratio * self.obj_loss(obj_pred, obj_targets, obj_weights, num_pos_inds)
+
+        loss = loss_reg + loss_cls + loss_obj
+        return loss, loss_reg, loss_cls, loss_obj
