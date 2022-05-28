@@ -1,3 +1,9 @@
+<div align="center">
+
+**General_detection**  
+💗 inspired by weiwei 💗
+</div>
+
 # General_detection
 
 This is a generic object detection project.
@@ -28,14 +34,17 @@ sh voc2coco.sh
 ```
 ### 2. Setting the config file and run
 
-Change the parameters in config/xx.yaml. More information can be found here 
+Change the parameters in config/xx.yaml. More information can be found here [Config Parameter Description](docs/retinanet_r50_fpn_1x_coco.md) 
 ```
 # Change the parameters in config/xx.yaml
 # Run train.py
 python train.py
 ```
 ---
----
 ## Reference
-* This repository is mainly modified from this repository. https://github.com/Peterisfar/YOLOV3
+* https://github.com/Peterisfar/YOLOV3
+* https://github.com/PaddlePaddle/PaddleDetection
+* https://github.com/Megvii-BaseDetection/YOLOX
+* https://github.com/DAMONYLY/nanodet
+* https://github.com/open-mmlab/mmdetection
 
