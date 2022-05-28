@@ -1,6 +1,6 @@
 from .fpn import FPN
 
-def build_fpn(cfg, channel_in = [1024, 512, 256]):
+def build_neck(cfg, channel_in = [1024, 512, 256]):
     """
     Arguments:
         name (str): the fpn types, [yolo_fpn, fpn]

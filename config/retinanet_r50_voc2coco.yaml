@@ -13,7 +13,7 @@ Model:
     name: Resnet # [Darknet53, Resnet, shufflenetv2]
     depth: 50 # depth of ResNet model [18, 34, 50, 101, 152]
     model_size: 0.5x # model size of shufflenetv2 model[0.5x, 1.0x, 1.5x, 2.0x]
-  fpn:
+  neck:
     name: fpn
     channel_out: 256 # fpn层输出通道大小, 没有则默认是256
     out_stride: [8, 16, 32] # TODO: 用于输出多少x的特征图用来检测
@@ -70,12 +70,12 @@ Data:
     nms_thre: 0.5
       
 Schedule:
-  resume_path:  # if exist, means resume training from resume path
+  resume_path: # if exist, means resume training from resume path
   device:
-    gpus: '0' # cuda device, i.e. 0 or 0,1,2,3 or cpu
-    batch_size: 20
+    gpus: '1' # cuda device, i.e. 0 or 0,1,2,3 or cpu
+    batch_size: 10
     num_workers: 4
-  seed: 10
+  seed: 
   epochs: 30
   optimizer:
     name: SGD
@@ -89,7 +89,7 @@ Schedule:
     warmup: 0.5
 
 Log:
-  save_path: ./results/atss_iou_loss_lr0.01 # where to save model(.pth) and tensorboard data
+  save_path: ./results/test5 # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 1 # epochs to val 
 

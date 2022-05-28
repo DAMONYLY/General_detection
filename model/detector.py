@@ -1,7 +1,7 @@
 import torch.nn as nn
 from .backbones import build_backbone
 from .head import build_head
-from .necks import build_fpn
+from .necks import build_neck
 
 class General_detector(nn.Module):
     """
@@ -12,8 +12,8 @@ class General_detector(nn.Module):
         super(General_detector, self).__init__()
         self.num_anchors = cfg.Model.anchors.num
         self.backbone = build_backbone(cfg)
-        self.fpn = build_fpn(cfg.Model.fpn, channel_in = self.backbone.fpn_size)
-        self.head = build_head(cfg.Model.head, self.fpn.channel_out, self.num_anchors)
+        self.neck = build_neck(cfg.Model.neck, channel_in = self.backbone.neck_size)
+        self.head = build_head(cfg.Model.head, self.neck.channel_out, self.num_anchors)
         
     def forward(self, images):
         """
@@ -25,7 +25,7 @@ class General_detector(nn.Module):
 
         self.batch_size, _, self.image_w, self.image_h = images.shape
         features = self.backbone(images) 
-        features = self.fpn(features)
+        features = self.neck(features)
         proposals_regs = []
         proposals_clses = []
         

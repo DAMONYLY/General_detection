@@ -7,7 +7,8 @@ from tqdm import tqdm
 import os
 from model.anchor import Anchors
 from model.post_processing import yolo_decode, clip_bboxes, multiclass_nms
-
+from model.utils import gather, is_main_process
+import itertools
 class COCO_Evaluater:
     '''
     COCO evaluate
@@ -26,7 +27,8 @@ class COCO_Evaluater:
         model = model.eval()
         data_list = []     
         eval_results = {}   
-        for i, data in enumerate(tqdm(self.dataloader)):
+        progress_bar = tqdm if is_main_process() else iter
+        for i, data in enumerate(progress_bar(self.dataloader)):
             with torch.no_grad():
                 imgs = data['imgs'].to(self.device)
                 outputs = model(imgs)
@@ -37,8 +39,11 @@ class COCO_Evaluater:
                                                                            proposals_clses)
                 data_list.extend(self.convert_to_pycocotools(data, batch_boxes, 
                                                              batch_scores, batch_labels))
-        if not len(data_list):
-            return 
+        data_list = gather(data_list, dst=0)
+        data_list = list(itertools.chain(*data_list))
+        # torch.distributed.reduce(statistics, dst=0)
+        if not is_main_process():
+            return 0
 
         # write output
         path = os.path.join(save_path, '{}_bbox_results.json'.format(self.dataset.set_name))

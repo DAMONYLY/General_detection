@@ -17,10 +17,9 @@ conda install pytorch torchvision
 pip3 install -r requirements.txt
 ```
 
-
 ## Train
-
-### 1. Run utils/voc2coco.sh to convert VOC data format to COCO format (if using coco data, please ignore)
+Now we only support dataset as COCO format. So first convert the dataset to coco format.
+### 1. Run utils/voc2coco.sh to convert datasetc format to COCO format (if using coco data, please ignore)
 
 For more usage refer to [x2coco.py](https://paddledetection.readthedocs.io/tutorials/Custom_DataSet.html)
 
@@ -28,6 +27,8 @@ For more usage refer to [x2coco.py](https://paddledetection.readthedocs.io/tutor
 sh voc2coco.sh
 ```
 ### 2. Setting the config file and run
+
+Change the parameters in config/xx.yaml. More information can be found here 
 ```
 # Change the parameters in config/xx.yaml
 # Run train.py
