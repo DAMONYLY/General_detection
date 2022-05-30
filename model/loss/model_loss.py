@@ -9,7 +9,7 @@ class Reg_Cls_Loss(nn.Module):
         self.cls_loss = eval(cls_loss)()
         self.cls_ratio = cls_ratio
 
-        assert reg_loss in ['SmoothL1_Loss', 'IOU_Loss'], f'Unsupport reg loss type'
+        assert reg_loss in ['SmoothL1_Loss', 'IOU_Loss', 'CIOU_Loss'], f'Unsupport reg loss type'
         self.reg_loss = eval(reg_loss)()
         self.reg_ratio = reg_ratio
 

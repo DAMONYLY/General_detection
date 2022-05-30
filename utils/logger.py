@@ -59,7 +59,7 @@ def redirect_sys_output(log_level="INFO"):
     sys.stdout = redirect_logger
 
 
-def setup_logger(save_dir, filename="train.log", mode="rewrite", distributed_rank=0):
+def setup_logger(save_dir, filename="train.log", rewrite=True, distributed_rank=0):
     """setup logger for training and testing.
     Args:
         save_dir(str): location to save log file
@@ -78,7 +78,7 @@ def setup_logger(save_dir, filename="train.log", mode="rewrite", distributed_ran
 
     save_file = os.path.join(save_dir, filename)
     logger.remove()
-    if mode == "rewrite" and os.path.exists(save_file):
+    if rewrite and os.path.exists(save_file):
         os.remove(save_file)
     if distributed_rank == 0:
         logger.add(sys.stderr, format=loguru_format, level="INFO", enqueue=True)

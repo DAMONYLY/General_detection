@@ -13,9 +13,9 @@ class General_detector(nn.Module):
         self.num_anchors = cfg.Model.anchors.num
         self.backbone = build_backbone(cfg)
         self.neck = build_neck(cfg.Model.neck, channel_in = self.backbone.neck_size)
-        self.head = build_head(cfg.Model.head, self.neck.channel_out, self.num_anchors)
+        self.head = build_head(cfg, self.neck.channel_out, cfg.Model.anchors.num)
         
-    def forward(self, images):
+    def forward(self, images, targets=None):
         """
         Args:
             images (Tensor)[B, C, H, W]: images to be processed, Shape  
@@ -33,6 +33,13 @@ class General_detector(nn.Module):
             proposals_reg, proposals_cls = self.head(feature)
             proposals_regs.append(proposals_reg)
             proposals_clses.append(proposals_cls)
-        return [proposals_regs, proposals_clses]
+        if self.training:
+            loss = self.head.loss_calculater([proposals_regs, proposals_clses], targets)
+            return loss
+        else:
+            return [proposals_regs, proposals_clses]
+    
+    
+
             
 

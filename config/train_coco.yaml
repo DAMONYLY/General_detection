@@ -25,13 +25,13 @@ Model:
     weight_path: # if exist, means load this weight path to pretrain
     name: Resnet # [Darknet53, Resnet, shufflenetv2]
     depth: 50 # depth of ResNet model [18, 34, 50, 101, 152]
-    # model_size: 1.0x # model size of shufflenetv2 model[0.5x, 1.0x, 1.5x, 2.0x]
-  fpn:
+    # model_size: 0.5x # model size of shufflenetv2 model[0.5x, 1.0x, 1.5x, 2.0x]
+  neck:
     name: fpn
     channel_out: 256 # fpn层输出通道大小, 没有则默认是256
     out_stride: [8, 16, 32] # TODO: 用于输出多少x的特征图用来检测
   head:
-    name: normal
+    name: retina_head
     reg_head:
       out_channel: 4
       mid_channel: 256
@@ -43,62 +43,65 @@ Model:
     head_shared: True # TODO: 用于指定head对于不同的FPN层是否共享 
   anchors: 
     strides: [8, 16, 32, 64, 128]
-    sizes: [32, 64, 128, 256, 512]
+    # base_sizes: 
     ratios: [0.5, 1, 2]
-    scales: [2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)]
+    scales: [4, 5, 6]
     num: 9
   metrics: 
-    name: Max_iou
+    name: Max_iou # [Max_iou, ATSS, change]
     pos_iou_thr: 0.5
-    neg_iou_thr: 0.3
+    neg_iou_thr: 0.4
+    # topk: 81
+  sample:
+    name: Retinanet
+    bbox_coder: bbox2delta
   loss:
+    name : Reg_Cls_Loss
     reg_loss: 
-      name: SmoothL1 #[SmoothL1, IOU]
+      name: SmoothL1_Loss #[SmoothL1_Loss, IOU_Loss]
       ratio: 10
     cls_loss: 
-      name: Focal
+      name: Focal_Loss # [Focal_Loss, BCE_Loss]
       ratio: 1
 
 Data:
   dataset_type: coco # type of dataset, now only support coco
   train:
-    dataset_path: ./dataset/coco # path of dataset
+    dataset_path: ./dataset/COCO # path of dataset
+    set_name: train2017
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
       hsv_prob: 1.0
       flip_prob: 0.5
   test:
-    dataset_path: ./dataset/coco # path of dataset
+    dataset_path: ./dataset/COCO # path of dataset
+    set_name: val2017
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
     nms_thre: 0.5
       
-
-
 Schedule:
-  resume_path:  # if exist, means resume training from resume path
+  resume_path: # if exist, means resume training from resume path
   device:
-    gpus: '0' # cuda device, i.e. 0 or 0,1,2,3 or cpu
-    batch_size: 14
+    gpus: '0,1,2,3' # cuda device, i.e. 0 or 0,1,2,3 or cpu
+    batch_size: 24
     num_workers: 4
-  seed: 10
-  epochs: 100
+  seed: 
+  epochs: 20
   optimizer:
     name: SGD
-    lr: 0.15
+    lr: 0.01
     momentum: 0.9
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
-    milestones: [35,70,85]
+    milestones: [15,18]
     gamma: 0.1
-    warmup: 2
+    warmup: 1
 
 Log:
-  save_path: ./results/coco # where to save model(.pth) and tensorboard data
+  save_path: ./results/COCO # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
-  val_intervals: 5 # epochs to val 
-
-
+  val_intervals: 1 # epochs to val 

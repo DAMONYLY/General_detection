@@ -10,9 +10,9 @@ from model.loss import build_loss
 from model.metrics import build_metrics
 from model.sample import build_sampler
 
-class Retina_Head(nn.Module):
+class test_Head(nn.Module):
     def __init__(self, num_features_in, num_anchors, cfg):
-        super(Retina_Head, self).__init__()
+        super(test_Head, self).__init__()
         
         reg_feature_size = cfg.Model.head.reg_head.get('mid_channel', 256)
         self.reg_out_channel = cfg.Model.head.reg_head.get('out_channel', 4)
@@ -111,7 +111,7 @@ class Retina_Head(nn.Module):
         num_pos_inds = 0
         
         for batch in range(batch_size):
-            assigned_results = self.assigner.assign(bboxes[batch], targets[batch], num_level_bboxes, feature=proposals_reg[batch])
+            assigned_results = self.assigner.assign(proposals_reg[batch], targets[batch], num_level_bboxes, proposals_cls[batch])
             
             sampled_results = self.sampler.sample(assigned_results, reg_feature=proposals_reg[batch])
             
@@ -133,5 +133,6 @@ class Retina_Head(nn.Module):
                                                    num_pos_inds) # reg_loss, cls_loss, conf_loss
         return {"losses": losses, 
                 "losses_reg": losses_reg,
-                "losses_cls": losses_cls
+                "losses_cls": losses_cls,
+                "losses_obj": torch.zeros_like(losses_cls)
                 }

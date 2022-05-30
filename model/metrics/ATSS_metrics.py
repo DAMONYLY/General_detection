@@ -33,11 +33,11 @@ class ATSSAssigner(nn.Module):
     """
 
     def __init__(self, topk):
+        super(ATSSAssigner, self).__init__()
         self.topk = topk
     # https://github.com/sfzhang15/ATSS/blob/master/atss_core/modeling/rpn/atss/loss.py
 
-    def assign(
-        self, bboxes, targets, num_level_bboxes, **kwargs):
+    def assign(self, bboxes, targets, num_level_bboxes, **kwargs):
         """Assign gt to bboxes.
 
         The assignment is done in following steps

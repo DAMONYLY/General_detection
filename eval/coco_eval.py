@@ -120,6 +120,7 @@ class COCO_Evaluater:
             proposals_reg = proposals_regs[id]
             proposals_cls = proposals_clses[id]
             p_reg = yolo_decode(proposals_reg, anchors)
+            # p_reg = proposals_reg
             p_cls = proposals_cls.squeeze(0)
             
             # 2. 将超出图片边界的框截掉

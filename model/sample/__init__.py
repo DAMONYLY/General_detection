@@ -1,4 +1,3 @@
-
 from .retinanet_sample import Retinanet_sampler
 
 def build_sampler(cfg):
