@@ -56,7 +56,7 @@ class Retina_Head(nn.Module):
         self.assigner = build_metrics(cfg)
         self.sampler = build_sampler(cfg)
         self.loss = build_loss(cfg.Model.loss)
-        self.img_size = cfg.Data.train.pipeline.input_size
+        # self.img_size = cfg.Data.train.pipeline.input_size
     
     def init_weights(self):
         logger.info("=> Initialize Head ...")
@@ -82,7 +82,7 @@ class Retina_Head(nn.Module):
         
         return reg_out, cls_out
     
-    def loss_calculater(self, features, targets):
+    def loss_calculater(self, features, targets, input_size):
         """
         Arguments:
             features (list[Tensor]): features from head [reg, cls]
@@ -101,7 +101,7 @@ class Retina_Head(nn.Module):
         assert proposals_reg.size(0) == proposals_cls.size(0) == targets.size(0)
         batch_size = proposals_reg.size(0)
         
-        bboxes = self.anchors(self.img_size, device=proposals_reg.device, dtype=proposals_reg.dtype)
+        bboxes = self.anchors(input_size, device=proposals_reg.device, dtype=proposals_reg.dtype)
         bboxes = bboxes.unsqueeze(0).repeat(batch_size, 1, 1)
         
         reg_targets = []

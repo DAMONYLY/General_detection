@@ -23,7 +23,8 @@ class General_detector(nn.Module):
             (list[Tensor, Tensor]): the feature extraction results for regression and classification, respectively
         """
 
-        self.batch_size, _, self.image_w, self.image_h = images.shape
+        self.batch_size, _, self.image_h, self.image_w = images.shape
+        input_size = [self.image_h, self.image_w]
         features = self.backbone(images) 
         features = self.neck(features)
         proposals_regs = []
@@ -34,7 +35,7 @@ class General_detector(nn.Module):
             proposals_regs.append(proposals_reg)
             proposals_clses.append(proposals_cls)
         if self.training:
-            loss = self.head.loss_calculater([proposals_regs, proposals_clses], targets)
+            loss = self.head.loss_calculater([proposals_regs, proposals_clses], targets, input_size)
             return loss
         else:
             return [proposals_regs, proposals_clses]

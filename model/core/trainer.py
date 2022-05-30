@@ -2,11 +2,14 @@
 # Copyright 2021-2022 Megvii Inc. 
 
 import datetime
+import math
 import os
 import time
 from loguru import logger
-
+import random
 import torch
+import torch.distributed as dist
+import torch.nn as nn
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.tensorboard import SummaryWriter
 from model.utils import get_rank, get_local_rank, get_world_size
@@ -16,7 +19,8 @@ from model.build_model import build_model
 from utils.model_info import get_model_info
 from eval.coco_eval import COCO_Evaluater
 from utils.optimizer import build_optimizer
-from utils.gpu import gpu_mem_usage
+from utils.gpu import gpu_mem_usage, occupy_mem
+from utils.visualize import show_dataset, show_pic_bbox
 
 class Trainer:
     def __init__(self, args):
@@ -36,6 +40,7 @@ class Trainer:
         self.save_path = args.Log.save_path
         self.dataset = args.Data.dataset_type
         self.val_intervals = args.Log.val_intervals
+        
         self.tensorboard = args.Log.tensorboard if self.rank == 0 else False
         if self.tensorboard:
             self.writer = SummaryWriter(log_dir=os.path.join(self.save_path, 'logs'))
@@ -52,6 +57,8 @@ class Trainer:
                                                      num_workers=args.Schedule.device.num_workers,
                                                      is_distributed=self.is_distributed
                                                      )
+        self.input_size = self.train_dataloader.dataset.input_size
+        self.multiscale_range = args.Data.train.pipeline.multiscale_range
         logger.info("=> Init data prefetcher to speed up dataloader...")
         self.prefetcher = DataPrefetcher(self.train_dataloader, self.device)
         self.max_iter = len(self.train_dataloader)
@@ -66,12 +73,12 @@ class Trainer:
         if args.Schedule.resume_path:
             logger.info('=> Start resume trainning from {}'.format(args.Schedule.resume_path))
             self.load_model_weights(args.Schedule.resume_path)
-        #------------6. build loss calculater--------------------------------
-        #------------7. build evaluator--------------------------------
+        #------------6. build evaluator--------------------------------
         self.evaluator = COCO_Evaluater(self.val_dataloader, self.device, args)
-        #------------8. DP mode ------------------------------
+        #------------7. DDP mode ------------------------------
         if self.is_distributed:        
             self.model = DDP(self.model, device_ids=[self.local_rank], broadcast_buffers=False)
+        # occupy_mem(self.local_rank)
         logger.info('\n{}'.format(self.model))
 
     def load_model_weights(self, resume_path):
@@ -108,6 +115,36 @@ class Trainer:
     def scalar_summary(self, tag, phase, value, step):
         self.writer.add_scalars(tag, {phase: value}, step)
 
+    def random_resize(self, rank, is_distributed):
+        tensor = torch.LongTensor(2).cuda()
+
+        if rank == 0:
+            size_factor = self.input_size[1] * 1.0 / self.input_size[0]
+            size = random.randint(*self.multiscale_range)
+            size = math.ceil(size/32) * 32
+            size = [int(size), int(size * size_factor)]
+            tensor[0] = size[0]
+            tensor[1] = size[1]
+
+        if is_distributed:
+            dist.barrier()
+            dist.broadcast(tensor, 0)
+
+        self.input_size = [tensor[0].item(), tensor[1].item()]
+
+    def preprocess(self, inputs, targets, tsize):
+        input_size_h = inputs.size(2)
+        input_size_w = inputs.size(2)
+        scale_h = tsize[0] / input_size_h
+        scale_w = tsize[1] / input_size_w
+        if scale_w != 1 or scale_h != 1:
+            inputs = nn.functional.interpolate(
+                inputs, size=tsize, mode="bilinear", align_corners=False
+            )
+            targets[..., [0,2]] = targets[..., [0,2]] * scale_w
+            targets[..., [1,3]] = targets[..., [1,3]] * scale_h
+        return inputs, targets
+
 
     def train(self):
 
@@ -126,8 +163,11 @@ class Trainer:
                 data = self.prefetcher.next()
                 imgs = data['imgs']
                 targets = data['targets']
+                imgs, targets = self.preprocess(imgs, targets, self.input_size)
                 # break
-                # show_dataset(self.train_dataloader, './test', num = 10)
+                # if self.input_size != [640, 640]:
+                    # show_dataset(self.train_dataloader, './test', num = 10)
+                    # show_pic_bbox(imgs, targets, './test', self.train_dataloader.dataset.class_names, num=10)
                 loss = self.model(imgs, targets)
                 loss["losses"].backward()
                 self.optimizer.step()
@@ -141,10 +181,11 @@ class Trainer:
                     iter_time = iter_time / print_fre
                     eta_seconds = (all_iter - (epoch - self.start_epoch) * len(self.train_dataloader) - (i - 1)) * iter_time
                     eta_str = "ETA: {}".format(datetime.timedelta(seconds=int(eta_seconds)))
-                    line = 'Epoch:[{}|{}], Batch:[{}|{}], memory_usage:{:.0f}MB, iter_time:{:.2f}s, {}lr:{:.2g}'.format(
-                        epoch, self.epochs - 1, i, len(self.train_dataloader) - 1, gpu_mem_usage(), iter_time, loss_line, self.optimizer.param_groups[0]['lr'])
+                    line = 'Epoch:[{}|{}], Batch:[{}|{}], input_size:{}, memory_usage:{:.0f}MB, iter_time:{:.2f}s, {}lr:{:.2g}'.format(
+                        epoch, self.epochs - 1, i, len(self.train_dataloader) - 1, self.input_size, gpu_mem_usage(), iter_time, loss_line, self.optimizer.param_groups[0]['lr'])
                     logger.info(line + ', ' + eta_str)
                     iter_time = 0
+                    self.random_resize(rank=self.rank, is_distributed=self.is_distributed)
                 if self.tensorboard:
                     self.scalar_summary("lr", "Train", self.optimizer.param_groups[0]['lr'], i+epoch * len(self.train_dataloader))
                     for k, v in loss.items():
