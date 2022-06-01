@@ -18,7 +18,7 @@ Model:
     channel_out: 256 # fpn层输出通道大小, 没有则默认是256
     out_stride: [8, 16, 32] # TODO: 用于输出多少x的特征图用来检测
   head:
-    name: retina_head
+    name: free_head
     reg_head:
       out_channel: 4
       mid_channel: 256
@@ -31,24 +31,27 @@ Model:
   anchors: 
     strides: [8, 16, 32, 64, 128]
     # base_sizes: 
-    ratios: [0.5, 1, 2]
-    scales: [4, 5, 6]
-    num: 9
+    ratios: [1]
+    scales: [1]
+    num: 1
   metrics: 
-    name: Max_iou # [Max_iou, ATSS, change]
+    name: ATSS # [Max_iou, ATSS, change]
     pos_iou_thr: 0.5
     neg_iou_thr: 0.4
-    topk: 81
+    topk: 9
   sample:
-    name: Retinanet
+    name: free
     bbox_coder: bbox2delta
   loss:
-    name : Reg_Cls_Loss
+    name : Reg_Cls_Obj_Loss
     reg_loss: 
-      name: SmoothL1_Loss #[SmoothL1_Loss, IOU_Loss, CIOU_Loss]
-      ratio: 10
+      name: CIOU_Loss #[SmoothL1_Loss, IOU_Loss, CIOU_Loss]
+      ratio: 1
     cls_loss: 
-      name: Focal_Loss # [Focal_Loss, BCE_Loss, Test_Loss]
+      name: Focal_Loss # [Focal_Loss, BCE_Loss]
+      ratio: 1
+    obj_loss: 
+      name: BCE_Loss # [Focal_Loss, BCE_Loss]
       ratio: 1
 
 Data:
@@ -59,7 +62,6 @@ Data:
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
-      multiscale_range: [640, 960]
       hsv_prob: 1.0
       flip_prob: 0.5
   test:
@@ -71,13 +73,13 @@ Data:
     nms_thre: 0.5
       
 Schedule:
-  resume_path: # results/funfun/backup_epoch19.pt # if exist, means resume training from resume path
+  resume_path: # if exist, means resume training from resume path
   device:
-    gpus: '0,1' # cuda device, i.e. 0 or 0,1,2,3 or cpu
+    gpus: '2,3' # cuda device, i.e. 0 or 0,1,2,3 or cpu
     batch_size: 20
     num_workers: 4
   seed: 
-  epochs: 20
+  epochs: 30
   optimizer:
     name: SGD
     lr: 0.01
@@ -85,12 +87,12 @@ Schedule:
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
-    milestones: [13]
+    milestones: [20,25]
     gamma: 0.1
-    warmup: 2
+    warmup: 1
 
 Log:
-  save_path: ./results/funfun222 # where to save model(.pth) and tensorboard data
+  save_path: ./results/test # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 1 # epochs to val 
 

@@ -48,7 +48,7 @@ Model:
       name: SmoothL1_Loss #[SmoothL1_Loss, IOU_Loss, CIOU_Loss]
       ratio: 10
     cls_loss: 
-      name: Focal_Loss # [Focal_Loss, BCE_Loss, Test_Loss]
+      name: Test_Loss # [Focal_Loss, BCE_Loss, Test_Loss]
       ratio: 1
 
 Data:
@@ -59,7 +59,7 @@ Data:
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
-      multiscale_range: [640, 960]
+      multiscale_range: [640, 640]
       hsv_prob: 1.0
       flip_prob: 0.5
   test:
@@ -71,13 +71,13 @@ Data:
     nms_thre: 0.5
       
 Schedule:
-  resume_path: # results/funfun/backup_epoch19.pt # if exist, means resume training from resume path
+  resume_path: # if exist, means resume training from resume path
   device:
-    gpus: '0,1' # cuda device, i.e. 0 or 0,1,2,3 or cpu
+    gpus: '2,3' # cuda device, i.e. 0 or 0,1,2,3 or cpu
     batch_size: 20
     num_workers: 4
   seed: 
-  epochs: 20
+  epochs: 15
   optimizer:
     name: SGD
     lr: 0.01
@@ -85,12 +85,12 @@ Schedule:
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
-    milestones: [13]
+    milestones: [10,12]
     gamma: 0.1
-    warmup: 2
+    warmup: 0.5
 
 Log:
-  save_path: ./results/funfun222 # where to save model(.pth) and tensorboard data
+  save_path: ./results/test2 # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 1 # epochs to val 
 

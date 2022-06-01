@@ -23,6 +23,132 @@ class COCO_Evaluater:
         self.anchor = Anchors(args.Model.anchors)
         self.metric_names = ["mAP", "AP_50", "AP_75", "AP_small", "AP_m", "AP_l"]
     
+    def evalute2(self, model, save_path='./'):
+        model = model.eval()
+        data_list = []     
+        eval_results = {}   
+        progress_bar = tqdm if is_main_process() else iter
+        for i, data in enumerate(progress_bar(self.dataloader)):
+            with torch.no_grad():
+                imgs = data['imgs'].to(self.device)
+                outputs = model(imgs)
+                proposals_regs = torch.cat(outputs[0], dim=1)
+                proposals_clses = torch.cat(outputs[1], dim=1)
+                output = self.postprocess2(self.anchor, proposals_regs, proposals_clses)
+                data_list.extend(self.convert_to_pycocotools2(data, output))
+        data_list = gather(data_list, dst=0)
+        data_list = list(itertools.chain(*data_list))
+        # torch.distributed.reduce(statistics, dst=0)
+        if not is_main_process():
+            return 0
+
+        # write output
+        path = os.path.join(save_path, '{}_bbox_results.json'.format(self.dataset.set_name))
+        json.dump(data_list, open(path, 'w'), indent=4)
+
+        # load results in COCO evaluation tool
+        coco_true = self.dataset.coco
+        coco_pred = coco_true.loadRes(path)
+
+        # run COCO evaluation
+        coco_eval = COCOeval(coco_true, coco_pred, 'bbox')
+        coco_eval.evaluate()
+        coco_eval.accumulate()
+        coco_eval.summarize()
+        aps = coco_eval.stats[:6]
+        model.train()
+
+        
+        for k, v in zip(self.metric_names, aps):
+            eval_results[k] = v
+
+        return eval_results
+
+    def postprocess2(self, anchor_generater, proposals_regs, proposals_clses):
+
+        anchors = anchor_generater(self.img_size, self.device, proposals_regs.dtype)
+
+        assert len(proposals_regs) == len(proposals_clses)
+        batch_size = len(proposals_regs)
+        output = [None for _ in range(batch_size)]
+        for id in range(batch_size):
+            proposals_reg = proposals_regs[id]
+            proposals_cls = proposals_clses[id]
+
+            if proposals_reg.size(1) > 4:
+                p_obj = proposals_reg[:, 4]
+            else:
+                p_obj = proposals_reg.new_full((proposals_reg.size(0), ), 1)
+            
+            p_reg = proposals_reg[:, :4]
+            p_reg = yolo_decode(p_reg, anchors)
+            p_reg = clip_bboxes(p_reg, self.img_size)
+
+            class_conf, class_pred = torch.max(proposals_cls, 1, keepdim=True)
+
+            conf_mask = (p_obj * class_conf.squeeze() >= self.conf_thre).squeeze()
+            # Detections ordered as (x1, y1, x2, y2, obj_conf, class_conf, class_pred)
+            detections = torch.cat((p_reg, p_obj.unsqueeze(1), class_conf, class_pred.float()), 1)
+            detections = detections[conf_mask]
+
+            if not detections.size(0):
+                continue
+
+            nms_out_index = torchvision.ops.batched_nms(
+                detections[:, :4],
+                detections[:, 4] * detections[:, 5],
+                detections[:, 6],
+                self.nms_thre,
+            )
+
+            detections = detections[nms_out_index]
+            if output[id] is None:
+                output[id] = detections
+            else:
+                output[id] = torch.cat((output[id], detections))
+
+        return output
+
+    def convert_to_pycocotools2(self, data, output):
+
+        batch_size = len(output)
+        
+        results = []
+        for batch in range(batch_size):
+            # output = output
+            boxes  = output[batch][:, :4].cpu()
+            scores = (output[batch][:, 4] * output[batch][:, 5]).cpu()
+            labels = output[batch][:, 6].cpu()
+
+            # correct boxes for image scale
+            boxes /= data['info'][batch]['scale']
+            index = data['info'][batch]['img_id']
+
+            if boxes.shape[0] == 0:
+                continue
+            # change to (x, y, w, h) (MS COCO standard)
+            boxes[:, 2] -= boxes[:, 0]
+            boxes[:, 3] -= boxes[:, 1]
+
+            # compute predicted labels and scores
+            #for box, score, label in zip(boxes[0], scores[0], labels[0]):
+            for box_id in range(boxes.shape[0]):
+                score = float(scores[box_id].numpy().item())
+                label = int(labels[box_id])
+                box = boxes[box_id, :].numpy()
+
+                # append detection for each positively labeled class
+                image_result = {
+                    'image_id'    : index,
+                    'category_id' : self.dataset.label_to_coco_label(label),
+                    'score'       : score,
+                    'bbox'        : box.tolist(),
+                }
+
+                # append detection to results
+                results.append(image_result)
+        return results
+
     def evalute(self, model, save_path='./'):
         model = model.eval()
         data_list = []     
@@ -120,9 +246,11 @@ class COCO_Evaluater:
             proposals_reg = proposals_regs[id]
             proposals_cls = proposals_clses[id]
             p_reg = yolo_decode(proposals_reg, anchors)
-            # p_reg = proposals_reg
-            p_cls = proposals_cls.squeeze(0)
-            
+            p_reg = proposals_reg[:, :4]
+            if proposals_reg.size(1) > 4:
+                p_cls = proposals_cls * proposals_reg[:, 4].unsqueeze(1).repeat(1, proposals_cls.size(1))
+            else:
+                p_cls = proposals_cls
             # 2. 将超出图片边界的框截掉
             p_reg = clip_bboxes(p_reg, self.img_size)
             

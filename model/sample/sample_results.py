@@ -2,11 +2,20 @@
 
 class SampleResult:
 
-    def __init__(self, bbox_targets, bbox_targets_weights, bbox_labels, bbox_labels_weights, pos_inds, neg_inds):
+    def __init__(self, bbox_targets, bbox_targets_weights, 
+                       bbox_labels, bbox_labels_weights, 
+                       bbox_objs=None, bbox_objs_weights=None,
+                       pos_inds=None, neg_inds=None):
+                       
         self.bbox_targets = bbox_targets
         self.bbox_targets_weights = bbox_targets_weights
+
         self.bbox_labels = bbox_labels
         self.bbox_labels_weights = bbox_labels_weights
+
+        self.bbox_objs = bbox_objs
+        self.bbox_objs_weights = bbox_objs_weights
+
         self.pos_inds = pos_inds
         self.neg_inds = neg_inds
         # Interface for possible user-defined properties

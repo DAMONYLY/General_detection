@@ -2,6 +2,7 @@ from .cls_head import ClassificationModel
 from .reg_head import RegressionModel
 from .retinanet_head import Retina_Head
 from .test_head import test_Head
+from .free_head import free_Head
 
 def build_head(cfg, channel, num_anchor):
 
@@ -19,6 +20,9 @@ def build_head(cfg, channel, num_anchor):
     elif head_name == 'test_head':
         # head = eval(cfg.name)
         Head = test_Head(channel, num_anchor, cfg)
+    elif head_name == 'free_head':
+        # head = eval(cfg.name)
+        Head = free_Head(channel, cfg)
         
     else:
         raise NotImplementedError

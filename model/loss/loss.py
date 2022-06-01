@@ -15,6 +15,8 @@ def weight_reduce_loss(loss, weight=None, reduction='avg_by_pos', avg_factor=Non
     """
     # if weight is specified, apply element-wise weight
     if weight is not None:
+        if weight.size() != loss.size():
+            weight = weight[:, 0]
         loss = loss * weight
 
     # if avg_factor is not specified, just reduce the loss
@@ -162,5 +164,29 @@ class CIOU_Loss(nn.Module):
         # CIoU
         cious = ious - (rho2 / c2 + alpha * v)
         loss = 1 - cious.clamp(min=-1.0, max=1.0)
+        loss = weight_reduce_loss(loss=loss, weight=weight, reduction=self.reduction, avg_factor=num_pos)
+        return loss
+
+class Test_Loss(nn.Module):
+    """Focal Loss for Dense Object Detection
+    https://arxiv.org/abs/1708.02002
+
+    Args:
+        
+    """
+    def __init__(self, reduction="avg_by_pos"):
+        super(Test_Loss, self).__init__()
+        self.reduction = reduction
+        self.loss = nn.BCELoss(reduction='none')
+
+    def forward(self, input, target, weight, num_pos):
+
+        loss = self.loss(input=input, target=target)
+        # input_mean = input.mean(1)
+        input_std = input.std(1)
+        test_weight = (1/input_std).unsqueeze(1).repeat(1, input.size(1))
+        # print(loss.shape, test_weight.shape)
+        loss = loss * test_weight
+        
         loss = weight_reduce_loss(loss=loss, weight=weight, reduction=self.reduction, avg_factor=num_pos)
         return loss

@@ -58,7 +58,7 @@ class Trainer:
                                                      is_distributed=self.is_distributed
                                                      )
         self.input_size = self.train_dataloader.dataset.input_size
-        self.multiscale_range = args.Data.train.pipeline.multiscale_range
+        # self.multiscale_range = args.Data.train.pipeline.multiscale_range
         logger.info("=> Init data prefetcher to speed up dataloader...")
         self.prefetcher = DataPrefetcher(self.train_dataloader, self.device)
         self.max_iter = len(self.train_dataloader)
@@ -89,7 +89,7 @@ class Trainer:
             self.optimizer.load_state_dict(chkpt['optimizer'])
         if chkpt['best_mAP_info'] is not None:
             self.best_mAP_info = chkpt['best_mAP_info']
-        del chkpt
+        # del chkpt
 
     def save_model_weights(self, path, epoch, mAP):
         if mAP['mAP'] > self.best_mAP_info['best_mAP']:
@@ -163,7 +163,7 @@ class Trainer:
                 data = self.prefetcher.next()
                 imgs = data['imgs']
                 targets = data['targets']
-                imgs, targets = self.preprocess(imgs, targets, self.input_size)
+                # imgs, targets = self.preprocess(imgs, targets, self.input_size)
                 # break
                 # if self.input_size != [640, 640]:
                     # show_dataset(self.train_dataloader, './test', num = 10)
@@ -185,7 +185,7 @@ class Trainer:
                         epoch, self.epochs - 1, i, len(self.train_dataloader) - 1, self.input_size, gpu_mem_usage(), iter_time, loss_line, self.optimizer.param_groups[0]['lr'])
                     logger.info(line + ', ' + eta_str)
                     iter_time = 0
-                    self.random_resize(rank=self.rank, is_distributed=self.is_distributed)
+                    # self.random_resize(rank=self.rank, is_distributed=self.is_distributed)
                 if self.tensorboard:
                     self.scalar_summary("lr", "Train", self.optimizer.param_groups[0]['lr'], i+epoch * len(self.train_dataloader))
                     for k, v in loss.items():
@@ -197,7 +197,7 @@ class Trainer:
             
             if epoch > -1 and epoch % self.val_intervals == 0:
                 logger.info('*'*20+"Validate"+'*'*20)
-                aps = self.evaluator.evalute(self.model, self.save_path)
+                aps = self.evaluator.evalute2(self.model, self.save_path)
                 if self.rank == 0:
                     mAP_info = {'mAP': aps["AP_50"], 'epoch': epoch}
                 if self.tensorboard:

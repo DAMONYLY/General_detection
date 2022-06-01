@@ -12,7 +12,6 @@
 | :------: | :--------: | :---------------: | :---------------: | :----: | :----: | :-: |
 | ResNet50 | 640        |    10             |   0.01_1x         | 0.702  |  [config](https://github.com/DAMONYLY/General_detection/blob/main/config/retinanet/retinanet_r50_fpn_1x_voc2coco.yaml)  |   -   | 
 
-
 ## Citations
 ```latex
 @inproceedings{lin2017focal,
