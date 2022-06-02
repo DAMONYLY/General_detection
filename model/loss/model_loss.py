@@ -5,11 +5,11 @@ class Reg_Cls_Loss(nn.Module):
     def __init__(self, cls_loss, reg_loss, cls_ratio=1, reg_ratio=1):
         super(Reg_Cls_Loss, self).__init__()
 
-        assert cls_loss in ['Focal_Loss', 'BCE_Loss'], f'Unsupport cls loss type'
+        assert cls_loss in ['Focal_Loss', 'BCE_Loss', 'Test_Loss'], f'Unsupport cls loss type'
         self.cls_loss = eval(cls_loss)()
         self.cls_ratio = cls_ratio
 
-        assert reg_loss in ['SmoothL1_Loss', 'IOU_Loss'], f'Unsupport reg loss type'
+        assert reg_loss in ['SmoothL1_Loss', 'IOU_Loss', 'CIOU_Loss'], f'Unsupport reg loss type'
         self.reg_loss = eval(reg_loss)()
         self.reg_ratio = reg_ratio
 
@@ -25,7 +25,7 @@ class Reg_Cls_Obj_Loss(nn.Module):
     def __init__(self, cls_loss, reg_loss, obj_loss, cls_ratio=1, reg_ratio=1, obj_ratio=1):
         super(Reg_Cls_Obj_Loss, self).__init__()
 
-        assert reg_loss in ['SmoothL1_Loss', 'IOU_Loss'], f'Unsupport reg loss type'
+        assert reg_loss in ['SmoothL1_Loss', 'IOU_Loss', 'CIOU_Loss'], f'Unsupport reg loss type'
         self.reg_loss = eval(reg_loss)()
         self.reg_ratio = reg_ratio
         

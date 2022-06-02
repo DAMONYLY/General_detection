@@ -46,6 +46,12 @@ class Shape_transform:
         resized_img, r = resize_augment(img, self.input_size, self.keep_ratio)
         box *= r
 
+        image = resized_img.astype(np.float32).transpose(1,2,0)
+        # if(self.to_rgb): #如果是采用caffe风格的预训练，则无需转化为RGB格式，如果是pytorch风格的预训练，需要转化为RGB
+        image=cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image=cv2.subtract(image, np.array([123.675, 116.28, 103.53]).reshape(1,-1))
+        stdinv = 1/np.array([58.395, 57.12, 57.375]).reshape(1,-1)
+        resized_img=cv2.multiply(image, stdinv).transpose(2,0,1)
 
         targets[:, :4] = box
         _, res_h, res_w = resized_img.shape

@@ -34,14 +34,10 @@ class COCO_Evaluater:
                 outputs = model(imgs)
                 proposals_regs = torch.cat(outputs[0], dim=1)
                 proposals_clses = torch.cat(outputs[1], dim=1)
-                batch_boxes, batch_scores, batch_labels = self.postprocess(self.anchor,
-                                                                           proposals_regs,
-                                                                           proposals_clses)
-                data_list.extend(self.convert_to_pycocotools(data, batch_boxes, 
-                                                             batch_scores, batch_labels))
+                output = self.postprocess(self.anchor, proposals_regs, proposals_clses)
+                data_list.extend(self.convert_to_pycocotools(data, output))
         data_list = gather(data_list, dst=0)
         data_list = list(itertools.chain(*data_list))
-        # torch.distributed.reduce(statistics, dst=0)
         if not is_main_process():
             return 0
 
@@ -66,16 +62,62 @@ class COCO_Evaluater:
             eval_results[k] = v
 
         return eval_results
-    
 
-    def convert_to_pycocotools(self, data, batch_boxes, batch_scores, batch_labels):
-        assert len(batch_boxes) == len(batch_scores) == len(batch_labels)
-        batch_size = len(batch_boxes)
+    def postprocess(self, anchor_generater, proposals_regs, proposals_clses):
+
+        anchors = anchor_generater(self.img_size, self.device, proposals_regs.dtype)
+
+        assert len(proposals_regs) == len(proposals_clses)
+        batch_size = len(proposals_regs)
+        output = [None for _ in range(batch_size)]
+        for id in range(batch_size):
+            proposals_reg = proposals_regs[id]
+            proposals_cls = proposals_clses[id]
+
+            if proposals_reg.size(1) > 4:
+                p_obj = proposals_reg[:, 4]
+            else:
+                p_obj = proposals_reg.new_full((proposals_reg.size(0), ), 1)
+            
+            p_reg = proposals_reg[:, :4]
+            p_reg = yolo_decode(p_reg, anchors)
+            p_reg = clip_bboxes(p_reg, self.img_size)
+
+            class_conf, class_pred = torch.max(proposals_cls, 1, keepdim=True)
+
+            conf_mask = (p_obj * class_conf.squeeze() >= self.conf_thre).squeeze()
+            # Detections ordered as (x1, y1, x2, y2, obj_conf, class_conf, class_pred)
+            detections = torch.cat((p_reg, p_obj.unsqueeze(1), class_conf, class_pred.float()), 1)
+            detections = detections[conf_mask]
+
+            if not detections.size(0):
+                continue
+
+            nms_out_index = torchvision.ops.batched_nms(
+                detections[:, :4],
+                detections[:, 4] * detections[:, 5],
+                detections[:, 6],
+                self.nms_thre,
+            )
+
+            detections = detections[nms_out_index]
+            if output[id] is None:
+                output[id] = detections
+            else:
+                output[id] = torch.cat((output[id], detections))
+
+        return output
+
+    def convert_to_pycocotools(self, data, outputs):
+        
         results = []
-        for batch in range(batch_size):
-            boxes  = batch_boxes[batch].cpu()
-            scores = batch_scores[batch].cpu()
-            labels = batch_labels[batch].cpu()
+        for batch, output in enumerate(outputs):
+            # output = output
+            if output is None:
+                continue
+            boxes  = output[:, :4].cpu()
+            scores = (output[:, 4] * output[:, 5]).cpu()
+            labels = output[:, 6].cpu()
 
             # correct boxes for image scale
             boxes /= data['info'][batch]['scale']
@@ -88,56 +130,21 @@ class COCO_Evaluater:
             boxes[:, 3] -= boxes[:, 1]
 
             # compute predicted labels and scores
-            #for box, score, label in zip(boxes[0], scores[0], labels[0]):
             for box_id in range(boxes.shape[0]):
-                score = float(scores[box_id])
+                score = float(scores[box_id].numpy().item())
                 label = int(labels[box_id])
-                box = boxes[box_id, :]
-
-                # scores are sorted, so we can break
-                if score < self.conf_thre:
-                    break
+                box = boxes[box_id, :].numpy()
 
                 # append detection for each positively labeled class
                 image_result = {
                     'image_id'    : index,
                     'category_id' : self.dataset.label_to_coco_label(label),
-                    'score'       : float(score),
+                    'score'       : score,
                     'bbox'        : box.tolist(),
                 }
 
                 # append detection to results
                 results.append(image_result)
         return results
-    
-    
-    def postprocess(self, anchor_generater, proposals_regs, proposals_clses):
-        anchors = anchor_generater(self.img_size, self.device, proposals_regs.dtype)
-        batch_boxes, batch_scores, batch_labels = [], [], []
-        assert len(proposals_regs) == len(proposals_clses)
-        batch_size = len(proposals_regs)
-        for id in range(batch_size):
-            proposals_reg = proposals_regs[id]
-            proposals_cls = proposals_clses[id]
-            p_reg = yolo_decode(proposals_reg, anchors)
-            p_cls = proposals_cls.squeeze(0)
-            
-            # 2. 将超出图片边界的框截掉
-            p_reg = clip_bboxes(p_reg, self.img_size)
-            
-            padding = p_cls.new_zeros(p_cls.shape[0], 1)
-            p_cls = torch.cat([p_cls, padding], dim=1)
 
-            boxes, scores, labels = multiclass_nms(
-                multi_bboxes = p_reg,
-                multi_scores = p_cls,
-                score_thr=self.conf_thre,
-                nms_cfg=dict(type="nms", iou_threshold=self.nms_thre),
-                max_num=100,
-            )
-            batch_boxes.append(boxes)
-            batch_scores.append(scores)
-            batch_labels.append(labels)
-        return batch_boxes, batch_scores, batch_labels
-        
-
+    

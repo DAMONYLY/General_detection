@@ -1,23 +1,10 @@
-
-
 Classes:
-  name: ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
-              'train', 'truck', 'boat', 'traffic_light', 'fire_hydrant',
-              'stop_sign', 'parking_meter', 'bench', 'bird', 'cat', 'dog',
-              'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
-              'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
-              'skis', 'snowboard', 'sports_ball', 'kite', 'baseball_bat',
-              'baseball_glove', 'skateboard', 'surfboard', 'tennis_racket',
-              'bottle', 'wine_glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
-              'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot',
-              'hot_dog', 'pizza', 'donut', 'cake', 'chair', 'couch',
-              'potted_plant', 'bed', 'dining_table', 'toilet', 'tv', 'laptop',
-              'mouse', 'remote', 'keyboard', 'cell_phone', 'microwave',
-              'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock',
-              'vase', 'scissors', 'teddy_bear', 'hair_drier', 'toothbrush']
-  num: 80
+  name: ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
+           'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse',
+           'motorbike', 'person', 'pottedplant', 'sheep', 'sofa',
+           'train', 'tvmonitor']
+  num: 20
         
-
 Model:
   name: General # [YOLO, General]
   backbone:
@@ -37,7 +24,7 @@ Model:
       mid_channel: 256
       stack_layers: 4 # 用于指定卷积的层数
     cls_head:
-      out_channel: 80
+      out_channel: 20
       mid_channel: 256
       stack_layers: 4 # 用于指定卷积的层数
     head_shared: True # TODO: 用于指定head对于不同的FPN层是否共享 
@@ -51,31 +38,32 @@ Model:
     name: Max_iou # [Max_iou, ATSS, change]
     pos_iou_thr: 0.5
     neg_iou_thr: 0.4
-    # topk: 81
+    topk: 81
   sample:
     name: Retinanet
     bbox_coder: bbox2delta
   loss:
     name : Reg_Cls_Loss
     reg_loss: 
-      name: SmoothL1_Loss #[SmoothL1_Loss, IOU_Loss]
+      name: SmoothL1_Loss #[SmoothL1_Loss, IOU_Loss, CIOU_Loss]
       ratio: 10
     cls_loss: 
-      name: Focal_Loss # [Focal_Loss, BCE_Loss]
+      name: Test_Loss # [Focal_Loss, BCE_Loss, Test_Loss]
       ratio: 1
 
 Data:
   dataset_type: coco # type of dataset, now only support coco
   train:
-    dataset_path: ./dataset/COCO # path of dataset
+    dataset_path: ./dataset/voc2coco # path of dataset
     set_name: train2017
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
+      multiscale_range: [640, 640]
       hsv_prob: 1.0
       flip_prob: 0.5
   test:
-    dataset_path: ./dataset/COCO # path of dataset
+    dataset_path: ./dataset/voc2coco # path of dataset
     set_name: val2017
     pipeline:
       input_size: [640, 640]
@@ -85,11 +73,11 @@ Data:
 Schedule:
   resume_path: # if exist, means resume training from resume path
   device:
-    gpus: '0,1,2,3' # cuda device, i.e. 0 or 0,1,2,3 or cpu
-    batch_size: 24
+    gpus: '2,3' # cuda device, i.e. 0 or 0,1,2,3 or cpu
+    batch_size: 20
     num_workers: 4
   seed: 
-  epochs: 20
+  epochs: 15
   optimizer:
     name: SGD
     lr: 0.01
@@ -97,11 +85,13 @@ Schedule:
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
-    milestones: [15,18]
+    milestones: [10,12]
     gamma: 0.1
-    warmup: 1
+    warmup: 0.5
 
 Log:
-  save_path: ./results/COCO # where to save model(.pth) and tensorboard data
+  save_path: ./results/test2 # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 1 # epochs to val 
+
+

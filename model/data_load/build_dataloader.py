@@ -6,9 +6,11 @@ from torch.utils.data import BatchSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 import torch.distributed as dist
+from model.utils import wait_for_the_master
 
 def build_train_dataloader(cfg, batch_size, num_workers, is_distributed, seed=0):
-    dataset = CocoDataset(cfg.dataset_path, set_name=cfg.set_name, pipeline=cfg.pipeline)
+    with wait_for_the_master():
+        dataset = CocoDataset(cfg.dataset_path, set_name=cfg.set_name, pipeline=cfg.pipeline)
 
     sampler = InfiniteSampler(len(dataset), shuffle=True, seed=seed if seed is not None else 0)
     if is_distributed:

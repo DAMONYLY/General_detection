@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-import math
 from loguru import logger
 from model.utils.init_weights import *
 from model.layers import ConvModule
@@ -11,9 +10,9 @@ from model.loss import build_loss
 from model.metrics import build_metrics
 from model.sample import build_sampler
 
-class Retina_Head(nn.Module):
-    def __init__(self, num_features_in, num_anchors, cfg):
-        super(Retina_Head, self).__init__()
+class free_Head(nn.Module):
+    def __init__(self, num_features_in, cfg):
+        super(free_Head, self).__init__()
         
         reg_feature_size = cfg.Model.head.reg_head.get('mid_channel', 256)
         self.reg_out_channel = cfg.Model.head.reg_head.get('out_channel', 4)
@@ -31,6 +30,8 @@ class Retina_Head(nn.Module):
                                              filters_out=reg_feature_size,
                                              kernel_size=3,
                                              stride=1,
+                                             pad=1,
+                                             norm='bn',
                                              activate='relu'
                                              )
                                   )
@@ -41,29 +42,31 @@ class Retina_Head(nn.Module):
                                              kernel_size=3,
                                              stride=1,
                                              pad=1,
+                                             norm='bn',
                                              activate='relu'
                                              )
                                   )
             
-        self.reg_head = ConvModule(reg_feature_size, num_anchors * self.reg_out_channel, kernel_size=3, pad=1)
+        self.reg_head = ConvModule(reg_feature_size, self.reg_out_channel, kernel_size=3, pad=1)
+        self.obj_head = ConvModule(reg_feature_size, 1, kernel_size=3, pad=1, activate='sigmoid')
         
-        self.cls_head = ConvModule(cls_feature_size, num_anchors * self.cls_out_channel, kernel_size=3, pad=1, activate='sigmoid')
-        self.num_anchors = num_anchors
+        self.cls_head = ConvModule(cls_feature_size, self.cls_out_channel, kernel_size=3, pad=1, activate='sigmoid')
+        
 
         self.anchors = Anchors(cfg.Model.anchors)
         self.assigner = build_metrics(cfg)
         self.sampler = build_sampler(cfg)
         self.loss = build_loss(cfg.Model.loss)
-
+        self.img_size = cfg.Data.train.pipeline.input_size
     
     def init_weights(self):
         logger.info("=> Initialize Head ...")
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 normal_init(m, std=0.01)
-        class_prior_prob = 0.01
-        bias_value = -math.log((1 - class_prior_prob) / class_prior_prob)
-        torch.nn.init.constant_(self.cls_head.conv.bias, bias_value)
+            elif isinstance(m, nn.BatchNorm2d):
+                m.eps = 1e-3
+                m.momentum = 0.03
 
 
     def forward(self, x):
@@ -74,8 +77,11 @@ class Retina_Head(nn.Module):
             reg_feature = reg_conv(reg_feature)
             cls_feature = cls_conv(cls_feature)
         reg_out = self.reg_head(reg_feature)
+        obj_out = self.obj_head(reg_feature)
+        reg_out = torch.cat((reg_out, obj_out), dim=1)
         cls_out = self.cls_head(cls_feature)
-        reg_out = reg_out.permute(0, 2, 3, 1).contiguous().view(b, -1, self.reg_out_channel)
+        
+        reg_out = reg_out.permute(0, 2, 3, 1).contiguous().view(b, -1, self.reg_out_channel+1)
         cls_out = cls_out.permute(0, 2, 3, 1).contiguous().view(b, -1, self.cls_out_channel)
         
         return reg_out, cls_out
@@ -99,37 +105,48 @@ class Retina_Head(nn.Module):
         assert proposals_reg.size(0) == proposals_cls.size(0) == targets.size(0)
         batch_size = proposals_reg.size(0)
         
-        bboxes = self.anchors(input_size, device=proposals_reg.device, dtype=proposals_reg.dtype)
+        bboxes = self.anchors(self.img_size, device=proposals_reg.device, dtype=proposals_reg.dtype)
         bboxes = bboxes.unsqueeze(0).repeat(batch_size, 1, 1)
         
         reg_targets = []
         reg_weights = []
         cls_targets = []
         cls_weights = []
+        obj_targets = []
+        obj_weights = []
         num_pos_inds = 0
         
         for batch in range(batch_size):
             assigned_results = self.assigner.assign(bboxes[batch], targets[batch], num_level_bboxes, feature=proposals_reg[batch])
-            
+             
             sampled_results = self.sampler.sample(assigned_results, reg_feature=proposals_reg[batch])
             
             reg_targets.append(sampled_results.bbox_targets)
             reg_weights.append(sampled_results.bbox_targets_weights)
             cls_targets.append(sampled_results.bbox_labels)
             cls_weights.append(sampled_results.bbox_labels_weights)
+            obj_targets.append(sampled_results.bbox_objs)
+            obj_weights.append(sampled_results.bbox_objs_weights)
             num_pos_inds += sampled_results.num_pos_inds
             
         reg_targets = torch.cat(reg_targets)
         reg_weights = torch.cat(reg_weights)
         cls_targets = torch.cat(cls_targets)
         cls_weights = torch.cat(cls_weights)
+        obj_targets = torch.cat(obj_targets)
+        obj_weights = torch.cat(obj_weights)
+
         reg_pred = proposals_reg.view(-1, proposals_reg.size(-1))
+        obj_pred = reg_pred[:, 4]
+        reg_pred = reg_pred[:, :4]
         cls_pred = proposals_cls.view(-1, proposals_cls.size(-1))
         
-        losses, losses_reg, losses_cls = self.loss(reg_pred, reg_targets, reg_weights,
+        losses, losses_reg, losses_cls, losses_obj = self.loss(reg_pred, reg_targets, reg_weights,
                                                    cls_pred, cls_targets, cls_weights,
+                                                   obj_pred, obj_targets, obj_weights,
                                                    num_pos_inds) # reg_loss, cls_loss, conf_loss
         return {"losses": losses, 
                 "losses_reg": losses_reg,
-                "losses_cls": losses_cls
+                "losses_cls": losses_cls,
+                "losses_obj": losses_obj,
                 }

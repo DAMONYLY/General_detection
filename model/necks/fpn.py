@@ -29,14 +29,14 @@ class FPN(nn.Module):
         self.P6 = nn.Conv2d(channel_in[2], channel_out, kernel_size=3, stride=2, padding=1)
 
         # "P7 is computed by applying ReLU followed by a 3x3 stride-2 conv on P6"
-        self.P7_1 = nn.ReLU()
-        self.P7_2 = nn.Conv2d(channel_out, channel_out, kernel_size=3, stride=2, padding=1)
+        self.P7 = nn.Conv2d(channel_out, channel_out, kernel_size=3, stride=2, padding=1)
 
     def init_weights(self):
         logger.info('initialize Fpn with config...')
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 xavier_init(m, distribution="uniform")
+                nn.init.constant_(m.bias,0)
                 
     def forward(self, inputs):
         C3, C4, C5 = inputs # large, medium, small
@@ -56,7 +56,6 @@ class FPN(nn.Module):
 
         P6_x = self.P6(C5)
 
-        P7_x = self.P7_1(P6_x)
-        P7_x = self.P7_2(P7_x)
+        P7_x = self.P7(P6_x)
 
         return [P3_x, P4_x, P5_x, P6_x, P7_x]

@@ -45,10 +45,10 @@ Model:
   loss:
     name : Reg_Cls_Loss
     reg_loss: 
-      name: SmoothL1_Loss #[SmoothL1_Loss, IOU_Loss]
+      name: SmoothL1_Loss #[SmoothL1_Loss, IOU_Loss, CIOU_Loss]
       ratio: 10
     cls_loss: 
-      name: Focal_Loss # [Focal_Loss, BCE_Loss]
+      name: Focal_Loss # [Focal_Loss, BCE_Loss, Test_Loss]
       ratio: 1
 
 Data:
@@ -59,6 +59,7 @@ Data:
     pipeline:
       input_size: [640, 640]
       keep_ratio: False
+      multiscale_range: [640, 640]
       hsv_prob: 1.0
       flip_prob: 0.5
   test:
@@ -72,7 +73,7 @@ Data:
 Schedule:
   resume_path: # if exist, means resume training from resume path
   device:
-    gpus: '2,3' # cuda device, i.e. 0 or 0,1,2,3 or cpu
+    gpus: '0,1' # cuda device, i.e. 0 or 0,1,2,3 or cpu
     batch_size: 20
     num_workers: 4
   seed: 
@@ -84,12 +85,12 @@ Schedule:
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
-    milestones: [15,18]
+    milestones: [13]
     gamma: 0.1
-    warmup: 1
+    warmup: 2
 
 Log:
-  save_path: ./results/retinanet_r50_fpn_1x_lr0.01 # where to save model(.pth) and tensorboard data
+  save_path: ./results/retinanet # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 1 # epochs to val 
 

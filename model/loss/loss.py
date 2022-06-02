@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-
+import math
 def weight_reduce_loss(loss, weight=None, reduction='avg_by_pos', avg_factor=None):
     """Apply element-wise weight and reduce loss.
 
@@ -15,6 +15,8 @@ def weight_reduce_loss(loss, weight=None, reduction='avg_by_pos', avg_factor=Non
     """
     # if weight is specified, apply element-wise weight
     if weight is not None:
+        if weight.size() != loss.size():
+            weight = weight[:, 0]
         loss = loss * weight
 
     # if avg_factor is not specified, just reduce the loss
@@ -103,6 +105,88 @@ class IOU_Loss(nn.Module):
             loss = -target.log()
         else:
             raise NotImplementedError
+        
+        loss = weight_reduce_loss(loss=loss, weight=weight, reduction=self.reduction, avg_factor=num_pos)
+        return loss
+
+class CIOU_Loss(nn.Module):
+    """CIOU loss for reg
+
+    Args:
+        
+    """
+    def __init__(self, reduction="avg_by_pos"):
+        super(CIOU_Loss, self).__init__()
+        self.reduction = reduction
+    def forward(self, pred, target, weight, num_pos, eps=1e-7):
+        # overlap
+        lt = torch.max(pred[:, :2], target[:, :2])
+        rb = torch.min(pred[:, 2:], target[:, 2:])
+        wh = (rb - lt).clamp(min=0)
+        overlap = wh[:, 0] * wh[:, 1]
+
+        # union
+        ap = (pred[:, 2] - pred[:, 0]) * (pred[:, 3] - pred[:, 1])
+        ag = (target[:, 2] - target[:, 0]) * (target[:, 3] - target[:, 1])
+        union = ap + ag - overlap + eps
+
+        # IoU
+        ious = overlap / union
+
+        # enclose area
+        enclose_x1y1 = torch.min(pred[:, :2], target[:, :2])
+        enclose_x2y2 = torch.max(pred[:, 2:], target[:, 2:])
+        enclose_wh = (enclose_x2y2 - enclose_x1y1).clamp(min=0)
+
+        cw = enclose_wh[:, 0]
+        ch = enclose_wh[:, 1]
+
+        c2 = cw**2 + ch**2 + eps
+
+        b1_x1, b1_y1 = pred[:, 0], pred[:, 1]
+        b1_x2, b1_y2 = pred[:, 2], pred[:, 3]
+        b2_x1, b2_y1 = target[:, 0], target[:, 1]
+        b2_x2, b2_y2 = target[:, 2], target[:, 3]
+
+        w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1 + eps
+        w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1 + eps
+
+        left = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2))**2 / 4
+        right = ((b2_y1 + b2_y2) - (b1_y1 + b1_y2))**2 / 4
+        rho2 = left + right
+
+        factor = 4 / math.pi**2
+        v = factor * torch.pow(torch.atan(w2 / h2) - torch.atan(w1 / h1), 2)
+
+        with torch.no_grad():
+            alpha = (ious > 0.5).float() * v / (1 - ious + v)
+
+        # CIoU
+        cious = ious - (rho2 / c2 + alpha * v)
+        loss = 1 - cious.clamp(min=-1.0, max=1.0)
+        loss = weight_reduce_loss(loss=loss, weight=weight, reduction=self.reduction, avg_factor=num_pos)
+        return loss
+
+class Test_Loss(nn.Module):
+    """Focal Loss for Dense Object Detection
+    https://arxiv.org/abs/1708.02002
+
+    Args:
+        
+    """
+    def __init__(self, reduction="avg_by_pos"):
+        super(Test_Loss, self).__init__()
+        self.reduction = reduction
+        self.loss = nn.BCELoss(reduction='none')
+
+    def forward(self, input, target, weight, num_pos):
+
+        loss = self.loss(input=input, target=target)
+        # input_mean = input.mean(1)
+        input_std = input.std(1)
+        test_weight = (1/input_std).unsqueeze(1).repeat(1, input.size(1))
+        # print(loss.shape, test_weight.shape)
+        loss = loss * test_weight
         
         loss = weight_reduce_loss(loss=loss, weight=weight, reduction=self.reduction, avg_factor=num_pos)
         return loss

@@ -38,5 +38,7 @@ class Retinanet_sampler:
         bbox_labels_weights[neg_inds, :] = 1.0
 
 
-        return SampleResult(bbox_targets, bbox_targets_weights, bbox_labels, 
-                            bbox_labels_weights, pos_inds, neg_inds)
+        return SampleResult(bbox_targets, bbox_targets_weights, 
+                            bbox_labels, bbox_labels_weights, 
+                            0, 0,
+                            pos_inds, neg_inds)

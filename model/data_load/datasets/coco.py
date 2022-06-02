@@ -25,7 +25,7 @@ class CocoDataset(Dataset):
             pipeline (callable, optional): Optional transform to be applied
                 on a sample.
         """
-        # self.img_size = cfg.img_size
+        self.input_size = pipeline.input_size
         self.root_dir = root_dir
         self.set_name = set_name
         self.coco      = COCO(os.path.join(self.root_dir, 'annotations', 'instances_' + self.set_name + '.json'))

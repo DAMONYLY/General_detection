@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-import math
 from loguru import logger
 from model.utils.init_weights import *
 from model.layers import ConvModule
@@ -11,9 +10,9 @@ from model.loss import build_loss
 from model.metrics import build_metrics
 from model.sample import build_sampler
 
-class Retina_Head(nn.Module):
+class test_Head(nn.Module):
     def __init__(self, num_features_in, num_anchors, cfg):
-        super(Retina_Head, self).__init__()
+        super(test_Head, self).__init__()
         
         reg_feature_size = cfg.Model.head.reg_head.get('mid_channel', 256)
         self.reg_out_channel = cfg.Model.head.reg_head.get('out_channel', 4)
@@ -31,6 +30,8 @@ class Retina_Head(nn.Module):
                                              filters_out=reg_feature_size,
                                              kernel_size=3,
                                              stride=1,
+                                             pad=1,
+                                             norm='bn',
                                              activate='relu'
                                              )
                                   )
@@ -41,6 +42,7 @@ class Retina_Head(nn.Module):
                                              kernel_size=3,
                                              stride=1,
                                              pad=1,
+                                             norm='bn',
                                              activate='relu'
                                              )
                                   )
@@ -54,16 +56,16 @@ class Retina_Head(nn.Module):
         self.assigner = build_metrics(cfg)
         self.sampler = build_sampler(cfg)
         self.loss = build_loss(cfg.Model.loss)
-
+        self.img_size = cfg.Data.train.pipeline.input_size
     
     def init_weights(self):
         logger.info("=> Initialize Head ...")
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 normal_init(m, std=0.01)
-        class_prior_prob = 0.01
-        bias_value = -math.log((1 - class_prior_prob) / class_prior_prob)
-        torch.nn.init.constant_(self.cls_head.conv.bias, bias_value)
+            elif isinstance(m, nn.BatchNorm2d):
+                m.eps = 1e-3
+                m.momentum = 0.03
 
 
     def forward(self, x):
@@ -80,7 +82,7 @@ class Retina_Head(nn.Module):
         
         return reg_out, cls_out
     
-    def loss_calculater(self, features, targets, input_size):
+    def loss_calculater(self, features, targets):
         """
         Arguments:
             features (list[Tensor]): features from head [reg, cls]
@@ -99,7 +101,7 @@ class Retina_Head(nn.Module):
         assert proposals_reg.size(0) == proposals_cls.size(0) == targets.size(0)
         batch_size = proposals_reg.size(0)
         
-        bboxes = self.anchors(input_size, device=proposals_reg.device, dtype=proposals_reg.dtype)
+        bboxes = self.anchors(self.img_size, device=proposals_reg.device, dtype=proposals_reg.dtype)
         bboxes = bboxes.unsqueeze(0).repeat(batch_size, 1, 1)
         
         reg_targets = []
@@ -109,7 +111,7 @@ class Retina_Head(nn.Module):
         num_pos_inds = 0
         
         for batch in range(batch_size):
-            assigned_results = self.assigner.assign(bboxes[batch], targets[batch], num_level_bboxes, feature=proposals_reg[batch])
+            assigned_results = self.assigner.assign(proposals_reg[batch], targets[batch], num_level_bboxes, proposals_cls[batch])
             
             sampled_results = self.sampler.sample(assigned_results, reg_feature=proposals_reg[batch])
             
@@ -131,5 +133,6 @@ class Retina_Head(nn.Module):
                                                    num_pos_inds) # reg_loss, cls_loss, conf_loss
         return {"losses": losses, 
                 "losses_reg": losses_reg,
-                "losses_cls": losses_cls
+                "losses_cls": losses_cls,
+                "losses_obj": torch.zeros_like(losses_cls)
                 }

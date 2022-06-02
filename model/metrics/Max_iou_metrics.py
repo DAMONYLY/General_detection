@@ -22,7 +22,6 @@ class Max_iou_assigner(nn.Module):
 
         self.pos_iou_thr = pos_iou_thr
         self.neg_iou_thr = neg_iou_thr
-        self.IOU_loss = True if 'iou' in cfg.Model.loss.reg_loss.name.lower() else False
         self.num_classes = cfg.Classes.num
         
     def assign(self, bboxes, targets, num_level_bboxes, **kwargs):
@@ -43,18 +42,23 @@ class Max_iou_assigner(nn.Module):
             reg_targets_assign(tensor), The labels corresponding to reg_preds_assign,
                                         shape: [M2, 4]
         """
-        if not targets.size(0):
-            return
+        
         target = targets[targets[:, 4] != -1]
         gt_bboxes = target[:, :4]
         gt_labels = target[:, 4]
         num_gt, num_bboxes = gt_bboxes.size(0), bboxes.size(0)
-
-        # compute IOU between anchor and target
         overlaps = iou_xyxy_torch(bboxes, gt_bboxes) # [N, M]
-        max_overlaps, argmax_overlaps = overlaps.max(dim=1) # [N]
-
         assigned_gt_inds = overlaps.new_full((num_bboxes, ), -1, dtype=torch.long) # [N]
+
+        if num_gt == 0 or num_bboxes == 0:
+            assigned_gt_inds[:] = 0 # [N]
+            max_overlaps = overlaps.new_full((num_bboxes, ), 0)
+            assigned_labels = assigned_gt_inds.new_full((num_bboxes, ), -1)
+            return AssignResult(num_gt, num_bboxes, assigned_gt_inds, max_overlaps, assigned_labels, bboxes, target)
+        # compute IOU between anchor and target
+
+        max_overlaps, argmax_overlaps = overlaps.max(dim=1) # [N]
+        max_gt_overlaps, argmax_gt_overlaps = overlaps.max(dim=0)
         
         neg_mask = max_overlaps < self.neg_iou_thr
         pos_mask = max_overlaps > self.pos_iou_thr
@@ -62,8 +66,18 @@ class Max_iou_assigner(nn.Module):
         assigned_gt_inds[pos_mask] = argmax_overlaps[pos_mask] + 1
         assigned_gt_inds[neg_mask] = 0
         
-        assigned_labels = assigned_gt_inds.new_full((num_bboxes, ), -1)
-        assigned_labels[pos_mask] = gt_labels[assigned_gt_inds[pos_mask] - 1].long()
+        for j in range(num_gt):
+            index = (overlaps[:, j] == max_gt_overlaps[j])
+            assigned_gt_inds[index] = j + 1
+
+        if gt_labels is not None:
+            assigned_labels = assigned_gt_inds.new_full((num_bboxes, ), -1)
+            pos_inds = torch.nonzero(assigned_gt_inds > 0, as_tuple=False).squeeze()
+            if pos_inds.numel() > 0:
+                assigned_labels[pos_inds] = gt_labels[assigned_gt_inds[pos_inds] - 1].long()
+        else:
+            assigned_labels = assigned_gt_inds.new_full((num_bboxes, ), -1)
+
         
         return AssignResult(num_gt, num_bboxes, assigned_gt_inds, max_overlaps, assigned_labels, bboxes, target)
 
