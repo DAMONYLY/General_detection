@@ -58,6 +58,7 @@ class Max_iou_assigner(nn.Module):
         # compute IOU between anchor and target
 
         max_overlaps, argmax_overlaps = overlaps.max(dim=1) # [N]
+        max_gt_overlaps, argmax_gt_overlaps = overlaps.max(dim=0)
         
         neg_mask = max_overlaps < self.neg_iou_thr
         pos_mask = max_overlaps > self.pos_iou_thr
@@ -65,8 +66,18 @@ class Max_iou_assigner(nn.Module):
         assigned_gt_inds[pos_mask] = argmax_overlaps[pos_mask] + 1
         assigned_gt_inds[neg_mask] = 0
         
-        assigned_labels = assigned_gt_inds.new_full((num_bboxes, ), -1)
-        assigned_labels[pos_mask] = gt_labels[assigned_gt_inds[pos_mask] - 1].long()
+        for j in range(num_gt):
+            index = (overlaps[:, j] == max_gt_overlaps[j])
+            assigned_gt_inds[index] = j + 1
+
+        if gt_labels is not None:
+            assigned_labels = assigned_gt_inds.new_full((num_bboxes, ), -1)
+            pos_inds = torch.nonzero(assigned_gt_inds > 0, as_tuple=False).squeeze()
+            if pos_inds.numel() > 0:
+                assigned_labels[pos_inds] = gt_labels[assigned_gt_inds[pos_inds] - 1].long()
+        else:
+            assigned_labels = assigned_gt_inds.new_full((num_bboxes, ), -1)
+
         
         return AssignResult(num_gt, num_bboxes, assigned_gt_inds, max_overlaps, assigned_labels, bboxes, target)
 

@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+import math
 from loguru import logger
 from model.utils.init_weights import *
 from model.layers import ConvModule
@@ -30,8 +31,6 @@ class Retina_Head(nn.Module):
                                              filters_out=reg_feature_size,
                                              kernel_size=3,
                                              stride=1,
-                                             pad=1,
-                                             norm='bn',
                                              activate='relu'
                                              )
                                   )
@@ -42,7 +41,6 @@ class Retina_Head(nn.Module):
                                              kernel_size=3,
                                              stride=1,
                                              pad=1,
-                                             norm='bn',
                                              activate='relu'
                                              )
                                   )
@@ -56,16 +54,16 @@ class Retina_Head(nn.Module):
         self.assigner = build_metrics(cfg)
         self.sampler = build_sampler(cfg)
         self.loss = build_loss(cfg.Model.loss)
-        # self.img_size = cfg.Data.train.pipeline.input_size
+
     
     def init_weights(self):
         logger.info("=> Initialize Head ...")
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 normal_init(m, std=0.01)
-            elif isinstance(m, nn.BatchNorm2d):
-                m.eps = 1e-3
-                m.momentum = 0.03
+        class_prior_prob = 0.01
+        bias_value = -math.log((1 - class_prior_prob) / class_prior_prob)
+        torch.nn.init.constant_(self.cls_head.conv.bias, bias_value)
 
 
     def forward(self, x):

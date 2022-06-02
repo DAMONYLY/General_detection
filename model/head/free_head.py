@@ -80,8 +80,8 @@ class free_Head(nn.Module):
         obj_out = self.obj_head(reg_feature)
         reg_out = torch.cat((reg_out, obj_out), dim=1)
         cls_out = self.cls_head(cls_feature)
+        
         reg_out = reg_out.permute(0, 2, 3, 1).contiguous().view(b, -1, self.reg_out_channel+1)
-        # obj_out = reg_out.permute(0, 2, 3, 1).contiguous().view(b, -1, self.reg_out_channel)
         cls_out = cls_out.permute(0, 2, 3, 1).contiguous().view(b, -1, self.cls_out_channel)
         
         return reg_out, cls_out

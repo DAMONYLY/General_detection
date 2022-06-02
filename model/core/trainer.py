@@ -197,7 +197,7 @@ class Trainer:
             
             if epoch > -1 and epoch % self.val_intervals == 0:
                 logger.info('*'*20+"Validate"+'*'*20)
-                aps = self.evaluator.evalute2(self.model, self.save_path)
+                aps = self.evaluator.evalute(self.model, self.save_path)
                 if self.rank == 0:
                     mAP_info = {'mAP': aps["AP_50"], 'epoch': epoch}
                 if self.tensorboard:

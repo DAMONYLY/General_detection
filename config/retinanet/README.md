@@ -10,7 +10,7 @@
 
 | backbone | input_size | batchsize per GPU | training strategy | Box AP | config | log |
 | :------: | :--------: | :---------------: | :---------------: | :----: | :----: | :-: |
-| ResNet50 | 640        |    10             |   0.01_1x         | 0.702  |  [config](https://github.com/DAMONYLY/General_detection/blob/main/config/retinanet/retinanet_r50_fpn_1x_voc2coco.yaml)  |   -   | 
+| ResNet50 | 640        |    10             |   0.01_1x         | 0.741  |  [config](https://github.com/DAMONYLY/General_detection/blob/main/config/retinanet/retinanet_r50_fpn_1x_voc2coco.yaml)  |   [log](https://github.com/DAMONYLY/General_detection/blob/main/config/retinanet/retinanet_r50_fpn_1x_voc2coco_train.log)   | 
 
 ## Citations
 ```latex

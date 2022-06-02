@@ -37,7 +37,7 @@ class Free_sampler:
         bbox_labels_weights[neg_inds, :] = 1.0
 
         if len(pos_inds) > 0:
-            pos_bbox_targets = bbox_targets[pos_inds]
+            # pos_bbox_targets = bbox_targets[pos_inds]
             # pos_bbox_targets_weights = bbox_targets_weights[pos_inds]
             pos_anchors = assign_result.bboxes[pos_inds]
             bbox_objs[pos_inds] = self.centerness_target(pos_anchors, pos_bbox_targets)
