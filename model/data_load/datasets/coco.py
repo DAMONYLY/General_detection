@@ -1,17 +1,7 @@
-import sys
 import os
-import torch
 import numpy as np
-import random
-
-from torch.utils.data import Dataset, DataLoader
-from torch.utils.data.sampler import Sampler
-
+from torch.utils.data import Dataset
 from pycocotools.coco import COCO
-
-import skimage.transform
-import skimage.color
-import skimage
 import cv2
 from ..pipeline import Pipeline
 
@@ -25,7 +15,7 @@ class CocoDataset(Dataset):
             pipeline (callable, optional): Optional transform to be applied
                 on a sample.
         """
-        self.input_size = pipeline.input_size
+        # self.input_size = pipeline.input_size
         self.root_dir = root_dir
         self.set_name = set_name
         self.coco      = COCO(os.path.join(self.root_dir, 'annotations', 'instances_' + self.set_name + '.json'))
@@ -60,7 +50,7 @@ class CocoDataset(Dataset):
         imgs = self.load_image(idx)
         targets = self.load_annotations(idx)
         sample = {'imgs': imgs, 'targets': targets}
-        sample['info'] = {'ori_img_info': [imgs.shape[0], imgs.shape[1]], 'img_id': self.image_ids[idx]}
+        sample['info'] = {'ori_img_shape': imgs.shape, 'img_id': self.image_ids[idx]}
         sample = self.pipeline(sample)
 
         return sample

@@ -31,6 +31,7 @@ class Retina_Head(nn.Module):
                                              filters_out=reg_feature_size,
                                              kernel_size=3,
                                              stride=1,
+                                             pad=1,
                                              activate='relu'
                                              )
                                   )

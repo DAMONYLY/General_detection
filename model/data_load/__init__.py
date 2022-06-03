@@ -1,4 +1,4 @@
-from .collater import simple_collater
+from .collater import simple_collater, multirange_collater
 from .pipeline import Pipeline
 from .sampler import InfiniteSampler
 from .data_prefetcher import DataPrefetcher

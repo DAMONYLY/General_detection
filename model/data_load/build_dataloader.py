@@ -1,6 +1,6 @@
 from .datasets import CocoDataset
 from .sampler import InfiniteSampler
-from .collater import simple_collater
+from .collater import simple_collater, multirange_collater
 
 from torch.utils.data import BatchSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
@@ -21,7 +21,7 @@ def build_train_dataloader(cfg, batch_size, num_workers, is_distributed, seed=0)
     dataloader_kwargs = {"num_workers": num_workers, 
                          "pin_memory": True,
                          "batch_sampler": batch_sampler,
-                         "collate_fn": simple_collater
+                         "collate_fn": multirange_collater
                          }
 
     train_loader = DataLoader(dataset, **dataloader_kwargs)
@@ -43,7 +43,7 @@ def build_val_dataloader(cfg, batch_size, num_workers, is_distributed):
     dataloader_kwargs = {"num_workers": num_workers,
                          "pin_memory": True,
                          "batch_sampler": batch_sampler,
-                         "collate_fn": simple_collater,
+                         "collate_fn": multirange_collater,
                          }
 
     val_loader = DataLoader(valdataset, **dataloader_kwargs)

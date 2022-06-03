@@ -17,7 +17,7 @@ class COCO_Evaluater:
         self.dataloader = dataloader
         self.dataset = dataloader.dataset
         self.device = device
-        self.img_size = args.Data.test.pipeline.input_size
+        self.img_size = args.Data.test.pipeline.resize_aug.input_size
         self.conf_thre = conf_thre
         self.nms_thre = args.Data.test.nms_thre
         self.anchor = Anchors(args.Model.anchors)
