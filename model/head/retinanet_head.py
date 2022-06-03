@@ -4,12 +4,11 @@ import math
 from loguru import logger
 from model.utils.init_weights import *
 from model.layers import ConvModule
-
-
 from model.anchor import Anchors
 from model.loss import build_loss
 from model.metrics import build_metrics
 from model.sample import build_sampler
+from model.utils import delta2bbox
 
 class Retina_Head(nn.Module):
     def __init__(self, num_features_in, num_anchors, cfg):
@@ -134,3 +133,11 @@ class Retina_Head(nn.Module):
                 "losses_reg": losses_reg,
                 "losses_cls": losses_cls
                 }
+
+        
+
+
+    def decode(self, feature, anchor):
+
+        return delta2bbox(feature, anchor)
+

@@ -1,6 +1,5 @@
 from .Max_iou_metrics import Max_iou_assigner
 from .ATSS_metrics import ATSSAssigner
-from .change_metrics import ChangeAssigner
 
 def build_metrics(cfg):
     if cfg.Model.metrics.name.lower() == 'max_iou':
@@ -10,7 +9,6 @@ def build_metrics(cfg):
     elif cfg.Model.metrics.name.lower() == 'atss':
         topk = getattr(cfg.Model.metrics, 'topk', 9)
         return ATSSAssigner(topk)
-    elif cfg.Model.metrics.name.lower() == 'change':
-        return ChangeAssigner(9)
+
     else:
         raise NotImplementedError

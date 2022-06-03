@@ -31,11 +31,11 @@ Model:
   anchors: 
     strides: [8, 16, 32, 64, 128]
     # base_sizes: 
-    ratios: [1]
-    scales: [8]
-    num: 1
+    ratios: [0.5, 1, 2]
+    scales: [4, 5, 6]
+    num: 9
   metrics: 
-    name: ATSS # [Max_iou, ATSS, change]
+    name: Max_iou # [Max_iou, ATSS, change]
     pos_iou_thr: 0.5
     neg_iou_thr: 0.4
     topk: 9
@@ -102,7 +102,7 @@ Schedule:
     warmup: 2
 
 Log:
-  save_path: ./results/atss3 # where to save model(.pth) and tensorboard data
+  save_path: ./results/test # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 1 # epochs to val 
 

@@ -60,16 +60,29 @@ Data:
     dataset_path: ./dataset/voc2coco # path of dataset
     set_name: train2017
     pipeline:
-      input_size: [640, 640]
-      keep_ratio: False
-      hsv_prob: 1.0
-      flip_prob: 0.5
+      hsv_aug:
+        prob: 1.0
+      flip_aug:
+        prob: 0.5
+      resize_aug:
+        input_size: [640, 640]
+        keep_ratio: False
+      norm_aug:
+        mean: [123.675, 116.28, 103.53]
+        std: [58.395, 57.12, 57.375]
+      to_tensor_aug:
+
   test:
     dataset_path: ./dataset/voc2coco # path of dataset
     set_name: val2017
     pipeline:
-      input_size: [640, 640]
-      keep_ratio: False
+      resize_aug:
+        input_size: [640, 640]
+        keep_ratio: False
+      norm_aug:
+        mean: [123.675, 116.28, 103.53]
+        std: [58.395, 57.12, 57.375]
+      to_tensor_aug:
     nms_thre: 0.5
       
 Schedule:
@@ -79,7 +92,7 @@ Schedule:
     batch_size: 20
     num_workers: 4
   seed: 
-  epochs: 30
+  epochs: 20
   optimizer:
     name: SGD
     lr: 0.01
@@ -87,12 +100,12 @@ Schedule:
     weight_decay: 0.0001
   lr_schedule:
     name: MultiStep_LR
-    milestones: [20,25]
+    milestones: [13]
     gamma: 0.1
-    warmup: 1
+    warmup: 2
 
 Log:
-  save_path: ./results/test # where to save model(.pth) and tensorboard data
+  save_path: ./results/free2 # where to save model(.pth) and tensorboard data
   tensorboard: True # whether to use tensorboard to collect results
   val_intervals: 1 # epochs to val 
 

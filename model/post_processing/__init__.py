@@ -1,2 +1,2 @@
-from .yolo_decoder import yolo_decode, clip_bboxes
+from .yolo_decoder import delta2bbox, clip_bboxes
 from .nms import multiclass_nms

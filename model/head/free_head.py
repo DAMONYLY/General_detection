@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+import math
 from loguru import logger
 from model.utils.init_weights import *
 from model.layers import ConvModule
@@ -31,7 +32,6 @@ class free_Head(nn.Module):
                                              kernel_size=3,
                                              stride=1,
                                              pad=1,
-                                             norm='bn',
                                              activate='relu'
                                              )
                                   )
@@ -42,7 +42,6 @@ class free_Head(nn.Module):
                                              kernel_size=3,
                                              stride=1,
                                              pad=1,
-                                             norm='bn',
                                              activate='relu'
                                              )
                                   )
@@ -57,16 +56,15 @@ class free_Head(nn.Module):
         self.assigner = build_metrics(cfg)
         self.sampler = build_sampler(cfg)
         self.loss = build_loss(cfg.Model.loss)
-        self.img_size = cfg.Data.train.pipeline.input_size
     
     def init_weights(self):
         logger.info("=> Initialize Head ...")
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 normal_init(m, std=0.01)
-            elif isinstance(m, nn.BatchNorm2d):
-                m.eps = 1e-3
-                m.momentum = 0.03
+        class_prior_prob = 0.01
+        bias_value = -math.log((1 - class_prior_prob) / class_prior_prob)
+        torch.nn.init.constant_(self.cls_head.conv.bias, bias_value)
 
 
     def forward(self, x):
@@ -80,7 +78,7 @@ class free_Head(nn.Module):
         obj_out = self.obj_head(reg_feature)
         reg_out = torch.cat((reg_out, obj_out), dim=1)
         cls_out = self.cls_head(cls_feature)
-        
+
         reg_out = reg_out.permute(0, 2, 3, 1).contiguous().view(b, -1, self.reg_out_channel+1)
         cls_out = cls_out.permute(0, 2, 3, 1).contiguous().view(b, -1, self.cls_out_channel)
         
@@ -105,7 +103,7 @@ class free_Head(nn.Module):
         assert proposals_reg.size(0) == proposals_cls.size(0) == targets.size(0)
         batch_size = proposals_reg.size(0)
         
-        bboxes = self.anchors(self.img_size, device=proposals_reg.device, dtype=proposals_reg.dtype)
+        bboxes = self.anchors(input_size, device=proposals_reg.device, dtype=proposals_reg.dtype)
         bboxes = bboxes.unsqueeze(0).repeat(batch_size, 1, 1)
         
         reg_targets = []
@@ -117,10 +115,11 @@ class free_Head(nn.Module):
         num_pos_inds = 0
         
         for batch in range(batch_size):
-            assigned_results = self.assigner.assign(bboxes[batch], targets[batch], num_level_bboxes, feature=proposals_reg[batch])
+            assigned_results = self.assigner.assign(bboxes[batch], targets[batch], num_level_bboxes)
              
             sampled_results = self.sampler.sample(assigned_results, reg_feature=proposals_reg[batch])
             
+            proposals_reg[batch, :, :4] = self.decode(proposals_reg[batch, :, :4], bboxes[batch])
             reg_targets.append(sampled_results.bbox_targets)
             reg_weights.append(sampled_results.bbox_targets_weights)
             cls_targets.append(sampled_results.bbox_labels)
@@ -150,3 +149,30 @@ class free_Head(nn.Module):
                 "losses_cls": losses_cls,
                 "losses_obj": losses_obj,
                 }
+
+    def decode(self, delta, anchors):
+
+        ax = (anchors[:, 0] + anchors[:, 2]) * 0.5
+        ay = (anchors[:, 1] + anchors[:, 3]) * 0.5
+        aw = anchors[:, 2] - anchors[:, 0]
+        ah = anchors[:, 3] - anchors[:, 1]
+
+        mean = delta.new_tensor([0.0,0.0,0.0,0.0])
+        std = delta.new_tensor([0.1,0.1,0.2,0.2])
+        delta=delta.mul_(std[None]).add_(mean[None])
+
+        dx = delta[:, 0]
+        dy = delta[:, 1]
+        dw = delta[:, 2]
+        dh = delta[:, 3]
+
+        predict_x = dx*aw+ax
+        predict_y = dy*ah+ay
+        predict_w = aw*torch.exp(dw)
+        predict_h = ah*torch.exp(dh)
+        x1 = predict_x - predict_w * 0.5
+        y1 = predict_y - predict_h * 0.5
+        x2 = predict_x + predict_w * 0.5
+        y2 = predict_y + predict_h * 0.5
+
+        return torch.stack([x1,y1,x2,y2],dim=-1)

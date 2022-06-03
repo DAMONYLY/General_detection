@@ -3,7 +3,7 @@ from torchvision.ops import nms
 
 
 
-def yolo_decode(feature, anchor):
+def delta2bbox(feature, anchor):
     """
     Args:
         feature (torch.tensor): output of fpn. [B, num_per_anchor, W, H, reg].
@@ -12,12 +12,6 @@ def yolo_decode(feature, anchor):
     output:
         feature (torch.tensor): after decode. [all_num_anchors, reg], in xyxy form.
     """
-    num_anchor, out_dim = feature.shape
-    dtype = feature.dtype
-    device = feature.device
-    # anchor = anchor.unsqueeze(0).repeat(batch_size, 1, 1, 1).type(dtype).to(device)
-    # feature = feature.view(batch_size, num_anchor, w * h, out_dim)
-
     anchor_widths  = anchor[..., 2] - anchor[..., 0]
     anchor_heights = anchor[..., 3] - anchor[..., 1]
     anchor_ctr_x   = anchor[..., 0] + 0.5 * anchor_widths
